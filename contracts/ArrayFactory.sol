@@ -2,35 +2,44 @@
 
 pragma solidity ^0.8.0;
 
-import "./ArrayVault.sol";
 import "openzeppelin-contracts/contracts/utils/Create2.sol";
 import "openzeppelin-contracts/contracts/utils/Address.sol";
 import "openzeppelin-contracts/contracts/proxy/TransparentUpgradeableProxy.sol";
+import "openzeppelin-contracts/contracts/access/Ownable.sol";
+import "openzeppelin-contracts/contracts/math/SafeMAth.sol";
 
-contract ArrayFactory {
+/** @title Array proxy factory. */
+contract ArrayFactory is Ownable {
     event ProxyCreated(address proxyAddress);
-    event VaultCreated(address implementation);
 
-    function deployProxyWithImplementation(bytes32 salt, address proxyAdminAddress) public {
-        address proxyAddress;
-        address vaultAddress;
+        /**
+        @dev Creates a proxy that is administered by the proxyAdmin contract, contains logic of the
+        implementation and is initialized.
+        @param proxyAdminAddress Contract address that is used to administer the proxies, from openzeppelin.
+        @param implementationAddress Contract address that contains the logic.
+        @param initializationCode parameters that are used to initialize the logic code, can't be empty.
+        @return proxyAddress the address of the proxy we deployed.
+      */
 
-        // here we're taking care of the *implementation*
-        vaultAddress = Create2.deploy(0, salt, type(ArrayVault).creationCode);
+    function deployProxy(address proxyAdminAddress, address implementationAddress, bytes memory initializationCode)
+    public
+    onlyOwner returns (address proxyAddress){
 
-        // here we're taking care of the *implementation*
-        // deploy proxy with the vaultAddress
+        require(Address.isContract(implementationAddress)); // dev: implementation must be contract
+        require(Address.isContract(proxyAdminAddress)); // dev: proxyAdmin must be contract
+        require(initializationCode.length > 0); // dev: we want to initialize as soon as possible
+
+        // let's deploy a new proxy
         TransparentUpgradeableProxy proxy =
         new TransparentUpgradeableProxy(
-            vaultAddress,
+            implementationAddress,
             proxyAdminAddress,
-            ''
-        );
+            initializationCode);
 
         proxyAddress = address(proxy);
 
-        ArrayVault(vaultAddress).initialize(msg.sender);
-        emit VaultCreated(vaultAddress);
+        emit ProxyCreated(proxyAddress);
+        return proxyAddress;
     }
 
 }
