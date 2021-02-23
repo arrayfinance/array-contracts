@@ -19,6 +19,7 @@ def test_deploy_reverts_not_contract(af, apa, owner, ini):
     with brownie.reverts( 'dev: implementation must be contract' ):
         af.deployProxy( apa.address, owner.address, ini, {'from': owner} )
 
+
 # deploy proxy should return the address of the proxy containing the logic of it's implementation
 def test_deploy_return_value(ArrayVault, af, apa, owner, vault, ini):
     tx = af.deployProxy( apa.address, vault.address, ini, {'from': owner} )
@@ -54,10 +55,12 @@ def test_deploy_reverts_noadmin(af, vault, owner, ini, someguy):
     with brownie.reverts( 'dev: proxyAdmin must be contract' ):
         af.deployProxy( someguy.address, vault.address, ini, {'from': owner} )
 
+
 # admin of the deployed proxy should be the admin contract
 def test_deploy_check_admin(af, apa, vault, owner, ini):
     tx = af.deployProxy( apa.address, vault.address, ini, {'from': owner} )
-    assert apa.getProxyAdmin(tx.return_value) == apa.address
+    assert apa.getProxyAdmin( tx.return_value ) == apa.address
+
 
 # implementation of deployed proxy should be the implementation
 def test_deploy_check_implementation(af, apa, vault, owner, ini):

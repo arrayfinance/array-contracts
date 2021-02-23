@@ -31,5 +31,5 @@ pip install -r requirements.txt
 5. Run the tests.
 
 ```
-brownie test
+brownie test -v -C -G
 ```
