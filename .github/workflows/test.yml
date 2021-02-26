@@ -4,11 +4,11 @@ on:
   push:
     branches:
     - master
-    - develop
+    - wip
   pull_request:
     branches:
     - master
-    - develop
+    - wip
 
 env:
   ETHERSCAN_TOKEN:  UM3UK4AW2CY55X1PTBHNMCQ3KKWKR315W9
