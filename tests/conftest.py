@@ -31,6 +31,10 @@ def vault(ArrayVault, someguy):
     yield someguy.deploy( ArrayVault )
 
 @pytest.fixture
+def apat(ArrayProxyAdminTimelock, deployer):
+    yield deployer.deploy(ArrayProxyAdminTimelock)
+
+@pytest.fixture
 def ini(vault, owner):
     data = vault.initialize.encode_input(owner.address)
     yield data

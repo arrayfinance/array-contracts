@@ -2,11 +2,10 @@
 
 pragma solidity ^0.8.0;
 
-import "openzeppelin-contracts/contracts/utils/Create2.sol";
-import "openzeppelin-contracts/contracts/utils/Address.sol";
-import "openzeppelin-contracts/contracts/proxy/TransparentUpgradeableProxy.sol";
-import "openzeppelin-contracts/contracts/access/Ownable.sol";
-import "openzeppelin-contracts/contracts/math/SafeMAth.sol";
+import "@openzeppelin/contracts/utils/Create2.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /** @title Array proxy factory. */
 contract ArrayFactory is Ownable {
