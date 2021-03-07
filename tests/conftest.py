@@ -1,5 +1,6 @@
 import pytest
-from brownie import Contract
+from brownie import ZERO_ADDRESS
+
 
 @pytest.fixture
 def owner(accounts):
@@ -30,11 +31,20 @@ def apa(ArrayProxyAdmin, owner):
 def vault(ArrayVault, someguy):
     yield someguy.deploy( ArrayVault )
 
+
 @pytest.fixture
-def apat(ArrayProxyAdminTimelock, deployer):
-    yield deployer.deploy(ArrayProxyAdminTimelock)
+def vault_two(ArrayVault, someguy):
+    yield someguy.deploy( ArrayVault )
+
+
+@pytest.fixture
+def apat(ArrayProxyAdminTimelock, owner, someguy, apa):
+    apat = owner.deploy( ArrayProxyAdminTimelock, 6400, [owner], [owner, someguy, ZERO_ADDRESS] )
+    apa.transferOwnership( apat.address, {'from': owner} )
+    yield apat
+
 
 @pytest.fixture
 def ini(vault, owner):
-    data = vault.initialize.encode_input(owner.address)
+    data = vault.initialize.encode_input( owner.address )
     yield data
