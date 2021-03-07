@@ -78,9 +78,6 @@ jobs:
     - name: Install python dependencies
       run: pip install -r requirements.txt
 
-    - name: install openzeppelin
-      run: brownie pm install OpenZeppelin/openzeppelin-contracts@4.0.0-beta.1
-
     - name: run tests
-      run: brownie test -s
+      run: brownie test -v -G -C -s
 
