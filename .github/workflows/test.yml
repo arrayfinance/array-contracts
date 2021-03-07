@@ -4,11 +4,9 @@ on:
   push:
     branches:
     - master
-    - develop
   pull_request:
     branches:
     - master
-    - develop
 
 env:
   ETHERSCAN_TOKEN: ${{ secrets.ETHERSCAN_TOKEN }}
@@ -73,12 +71,16 @@ jobs:
       with:
         path: |
           ${{ steps.pip-cache-dir-path.outputs.dir }}
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements-dev.txt') }}
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
-          ${{ runner.os }}-pip-${{ hashFiles('**/requirements-dev.txt') }}
+          ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           ${{ runner.os }}-pip-
     - name: Install python dependencies
       run: pip install -r requirements.txt
 
-    - name: Run tests
-      run: brownie test -v -G -C -s
+    - name: install openzeppelin
+      run: brownie pm install OpenZeppelin/openzeppelin-contracts@4.0.0-beta.1
+
+    - name: run tests
+      run: brownie test -s
+
