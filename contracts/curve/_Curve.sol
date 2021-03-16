@@ -10,9 +10,14 @@ interface I_BondingCurve{
 
 contract Curve {
 
-    uint256 private DEV_PCT_DAI = 10**17; // 10%
+    address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
+    address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;
+    address public VESTING_MULTISIG_ADDR = 0x0;  // TODO
+    address public HARVEST_MULTISIG_ADDR = 0x0; // TODO
+
+    uint256 private DEV_PCT_DAI = 5 * 10**16; // 5%
     uint256 private DEV_PCT_ARRAY = 2 * 10**17; // 20%
-    uint256 private BUYER_PCT_ARRAY = 7 * 10**17; // 70%
+    uint256 private DAO_PCT_ARRAY = 5 * 10**16;  // 5%
     uint256 private PRECISION = 10**18;
 
     uint256 public MAX_ARRAY_SUPPLY = 100000 * PRECISION;
@@ -29,11 +34,14 @@ contract Curve {
     // Keeps track of supply minted for bonding curve
     uint256 public virtualSupply = STARTING_ARRAY_MINTED;
 
-    // Keeps track of DAI for team
+    // Keeps track of DAI for team multisig
     uint256 public devFundDaiBalance;
 
-    // Keeps track of ARRAY for team
+    // Keeps track of ARRAY for team multisig
     uint256 public devFundArrayBalance;
+
+    // Keeps track of ARRAY for DAO multisig
+    uint256 public daoArrayBalance;
 
     // Used to calculate bonding curve slope
     uint32 public reserveRatio; // TODO
@@ -51,18 +59,18 @@ contract Curve {
     mapping(address => uint256) public deposits;
     mapping(address => uint256) public purchases;
 
-    event Minted(address sender, uint256 amount, uint256 deposit);
+    event Buy(); // TODO
     event Burned(address sender, uint256 amount, uint256 withdrawal);
+    event WithdrawDevFunds(address token, uint256 amount);
+    event WithdrawDaoFunds(uint256 amount);
 
     constructor(
         address _owner,
-        address _devFund,
         address _dai,
         address _arrayToken,
         address _curve
     ) public {
         owner = _owner;
-        devFund = _devFund;
         DAI = I_ERC20(_dai);
         ARRAY = I_ERC20(_arrayToken);
         CURVE = I_BondingCurve(_curve);
@@ -82,47 +90,53 @@ contract Curve {
     }
 
 
-    function buy(uint256 amountDai) public {
+    function buy(uint256 amountDai) public nonReentrant {  // TODO: import nonReentrant from OZ
         require(initialized, "!initialized");
         require(amountDai > 0, "buy: cannot deposit 0 tokens");
         require(DAI.balanceOf(msg.sender) >= amountDai, "buy: cannot deposit more than user balance");
         require(DAI.transferFrom(msg.sender, address(this), amountDai));
-        
+
+        // Calculate quantity of ARRAY minted based on total DAI spent
         uint256 amountArrayTotal = CURVE.calculatePurchaseReturn(
             virtualSupply,
             virtualBalance,
             reserveRatio,
-            amountDai
+            amountDaiDeposited
         );
-        require(amountArrayTotal <= MAX_ARRAY_SUPPLY, "buy: amountArrayTotal > max supply");
 
-        // Only track 90% of dai deposited, as 10% goes to team
-        uint256 amountDaiDeposited = amountDai * 9 / 10;
-
-        // Only mint 90% of ARRAY
-        uint256 amountArrayMinted = amountArrayTotal * 9 / 10;  // TODO: hardcoding
-
-        // 70% of ARRAY minted sent to dev team
-        uint256 amountArrayBuyer = amountArrayTotal * 7 / 9;
-        
-        // Update dev fund balances
+        // Only track 95% of dai deposited, as 5% goes to team
+        uint256 amountDaiDeposited = amountDai * DEV_PCT_DAI / PRECISION;
         uint256 amountDaiDevFund = amountDai - amountDaiDeposited;
-        uint256 amountArrayDevFund = amountArrayMinted - amountArrayBuyer;
+
+        // Only mint 95% of ARRAY total to account for 5% DAI dev fund
+        uint256 amountArrayMinted = amountArrayTotal * (PRECISION - DEV_PCT_DAI);
+        require(amountArrayMinted <= MAX_ARRAY_SUPPLY, "buy: amountArrayTotal > max supply");
+
+        // 20% of total ARRAY sent to Array team vesting
+        uint256 amountArrayDevFund = amountArrayTotal * DEV_PCT_ARRAY / PRECISION;
+
+        // 5% of total ARRAY sent to DAO multisig
+        uint256 amountArrayDao = amountArrayTotal * DAO_PCT_ARRAY / PRECISION;
+
+        // Remaining ARRAY goes to buyer
+        uint256 amountArrayBuyer = amountArrayMinted - amountArrayDevFund - amountArrayDao;
+        
+        // Update balances
         devFundDaiBalance = devFundDaiBalance + amountDaiDevFund;
         devFundArrayBalance = devFundArrayBalance + amountArrayDevFund;
+        daoArrayBalance = daoArrayBalance + amountArrayDao;
 
         // Update virtual balance and supply
         virtualBalance = virtualBalance + amountDaiDeposited;
-        virtualSupply = virtualSupply + amountArrayTotal;
+        virtualSupply = virtualSupply + amountArrayMinted;
 
-        // Update mappings of deposits / purchases
-        deposits[msg.sender] = deposits[msg.sender] + amountDaiDeposited;
-        purchases[msg.sender] = purchases[msg.sender] + amountArrayBuyer;
-
-        // Send array to buyer
+        // Mint buyer's ARRAY to buyer
         ARRAY.mint(msg.sender, amountArrayBuyer);
 
-        emit Minted(msg.sender, amountArrayBuyer, amountDai);
+        // Mint devFund's ARRAY to this contract for holding
+        ARRAY.mint(address(this), amountArrayDevFund);
+
+        emit Buy(); // TODO
     }
 
     function sell(uint256 amountArray, bool max) {
@@ -133,21 +147,36 @@ contract Curve {
     }
 
 
-    function withdrawDevFunds(address _token, uint256 amount, bool max) returns (bool) {
-        require(msg.sender == gov, "withdrawDevFunds: !gov"); // TODO: gov address
-        require(_token == address(ARRAY) || _token == address(DAI), "withdrawDevFunds: not DAI or ARRAY");
+    function withdrawDevFunds(address token, uint256 amount, bool max) returns (bool) {
+        require(msg.sender == DEV_MULTISIG_ADDR, "withdrawDevFunds: msg.sender != DEV_MULTISIG_ADDR");
+        require(token == address(ARRAY) || token == address(DAI), "withdrawDevFunds: token != DAI || ARRAY");
 
-        if (_token == address(ARRAY)) {
+        if (token == address(ARRAY)) {
             require(amount <= devFundArrayBalance);
             if (max) {amount = devFundArrayBalance;}
-            require(ARRAY.mint(devFund, amount));
+            require(ARRAY.mint(VESTING_MULTISIG_ADDR, amount));
             devFundArrayBalance = devFundArrayBalance - amount;
-        } else { // _token == address(DAI)
+        } else { // token == address(DAI)
             require(amount <= devFundDaiBalance);
             if (max) {amount = devFundDaiBalance;}
-            require(DAI.transfer(devFund, amount));
+            require(DAI.transfer(DEV_MULTISIG_ADDR, amount));
             devFundDaiBalance = devFundDaiBalance - amount;
         }
+
+        emit WithdrawDevFunds(token, amount);
     }
+
+    function withdrawDaoFunds(uint256 amount, bool max) returns (bool) {
+        require(
+            msg.sender == DAO_MULTISIG_ADDR || msg.sender == HARVEST_ADDR,
+            "withdrawDaoFunds: msg.sender != DAO_MULTISIG_ADDR || HARVEST_ADDR"
+        );
+        if (max) {amount = daoArrayBalance;}
+        require(ARRAY.transfer(DAO_MULTISIG_ADDR, amount));
+        daoArrayBalance = daoArrayBalance - amount;
+
+        emit WithdrawDaoFunds(amount);
+    }
+    // TODO: make this callable only from harvest
 
 }
