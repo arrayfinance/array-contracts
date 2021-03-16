@@ -48,3 +48,9 @@ def apat(ArrayProxyAdminTimelock, owner, someguy, apa):
 def ini(vault, owner):
     data = vault.initialize.encode_input( owner.address )
     yield data
+
+
+@pytest.fixture
+def bancor(BancorFormula, owner):
+    bancor = owner.deploy( BancorFormula )
+    yield bancor
