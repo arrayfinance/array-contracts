@@ -7,13 +7,13 @@
 * [ ] Bonding curve template
 * [x] Calculate curve based on pledged amount & start price
 * [ ] Mint ARRAY
-    * [ ] send 5% straight DAI to devs
-    * [ ] mint Array with remaining 95%
-    * [ ] 20% to Array Team vesting
-    * [ ] 5% to Array DAO multisig (as treasury) (for airdrops and stuff)
+    * [x] send 5% straight DAI to devs
+    * [x] mint Array with remaining 95%
+    * [x] 20% to Array Team vesting
+    * [x] 5% to Array DAO multisig (as treasury) (for airdrops and stuff)
     * [x] determine intervals to convert collateral deposited to other tokens (runs as Harvest)
     * [ ] Swap DAI for MultiAssets required by smart pool as a harvest 
-    * [ ] Send LP to HoldingContract
+    * [ ] Send LP to Curve
 * [x] Vault contracts
     * [x] Upgradable Proxy
     * [ ] Create Swap contract which swaps vault-generated interest into DAI, deposits into Smart Pool, refunds to user as claimable Array tokens, runs as a harvest
