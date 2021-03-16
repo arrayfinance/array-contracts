@@ -12,10 +12,10 @@ interface ISmartPool {
         uint minPoolAmountOut
     ) external returns (uint poolAmountOut);
 
-    function exitswapExternAmountOut(
+    function exitswapPoolAmountIn(
         address tokenOut,
-        uint tokenAmountOut,
-        uint maxPoolAmountIn
-    ) external returns (uint poolAmountIn);
+        uint poolAmountIn,
+        uint minAmountOut
+    ) external returns (uint tokenAmountOut);
 
 }
