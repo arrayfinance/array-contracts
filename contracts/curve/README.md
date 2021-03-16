@@ -1,24 +1,39 @@
 # Bonding curve shiz
 
+
+## BLOCKER: SMART POOL SETUP
+
 ## Todo
 * [ ] Bonding curve template
-* [ ] Calculate curve based on pledged amount & start price
+* [x] Calculate curve based on pledged amount & start price
 * [ ] Mint ARRAY
-    * [ ] split deposit to 70/30 collatoral/dev fund
-    * [ ] determine intervals to convert collateral deposited to other tokens 
-    * [ ] Split dev fund to non-interest bearing tokens
-    * [ ] Split dev fund to interest bearing tokens
-* [ ] Burn ARRAY
-    * [ ] Refund 70% of collateral
-    * [ ] Convert collateral to DAI first, or send as-is?
+    * [ ] send 5% straight DAI to devs
+    * [ ] mint Array with remaining 95%
+    * [ ] 20% to Array Team vesting
+    * [ ] 5% to Array DAO multisig (as treasury) (for airdrops and stuff)
+    * [x] determine intervals to convert collateral deposited to other tokens (runs as Harvest)
+    * [ ] Swap DAI for MultiAssets required by smart pool as a harvest 
+    * [ ] Send LP to HoldingContract
+* [x] Vault contracts
+    * [x] Upgradable Proxy
+    * [ ] Create Swap contract which swaps vault-generated interest into DAI, deposits into Smart Pool, refunds to user as claimable Array tokens, runs as a harvest
+
+* [ ] HoldingContract AKA Burn ARRAY
+    * [ ] Get fraction of array being burned, return proportional BPT to user who called it.
+
 * [ ] DAO
-    * [ ] Move tokens from one farm to another
-    * [ ] Replace DAI for another stablecoin
-    * [ ] Replace DAI with a volatile coin
-    * [ ] Replace DAI with an interest-bearing coin
-    * [ ] Replace DAI with multiple coins
-    * [ ] Rebasing tokens?
-    * [ ] Allocate dev funds
+    * [ ] Create DAO-Multisig controlled Balancer Smart Pool
+    * [ ] Manually swap to Smart Pool weights and fill pool
+    * [ ] Send BPT claim tokens to HoldingContract
+
+* [ ] TOKEN
+    * [ ] Mint 10,000 and send to DAO Multisig
+    * [ ] Future mints are called from other contracts (Array Minting call with DAI, and Vault call for Swap)
+    * Cap at 100k, governance removable.
+
+* [ ] CURVE
+    * [ ] Find nice curve candidates to test + share to DAO for voting
+
 * [ ] Testing
 
 
