@@ -15,7 +15,7 @@ compiler:
   solc:
     version: 0.8.0
     remappings:
-      - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.0.0-beta.1"
+      - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.0.0-rc.0"
 reports:
   exclude_contracts:
     - SafeMath
