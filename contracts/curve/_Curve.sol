@@ -12,6 +12,7 @@ contract Curve {
 
     address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
     address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;
+	address public SMART_POOL = 0x0;
     address public VESTING_MULTISIG_ADDR = 0x0;  // TODO
     address public HARVEST_MULTISIG_ADDR = 0x0; // TODO
 
@@ -54,6 +55,7 @@ contract Curve {
     address public gov;
     I_ERC20 public ARRAY;
     I_ERC20 public DAI;
+	I_ERC20 public TOKENLP;
     I_BondingCurve public CURVE;
 
     mapping(address => uint256) public deposits;
@@ -68,13 +70,15 @@ contract Curve {
         address _owner,
         address _dai,
         address _arrayToken,
-        address _curve
+        address _curve,
+		address _TokenLP
     ) public {
         owner = _owner;
         DAI = I_ERC20(_dai);
         ARRAY = I_ERC20(_arrayToken);
+		TOKENLP = I_ERC20(_TokenLP);
         CURVE = I_BondingCurve(_curve);
-
+    
         buy(virtualBalance);
     }
 
@@ -142,6 +146,12 @@ contract Curve {
     function sell(uint256 amountArray, bool max) {
 
         if (max) {amountArray = ARRAY.balanceOf(msg.sender);}        
+//get curve contract balance of LPtoken
+//get total supply of array token, subtract amount burned
+//get % of burned supply
+//return burned supply % as LPtoken to user
+
+
 
         emit Burned(msg.sender, amountArraySeller, amountDai);
     }
