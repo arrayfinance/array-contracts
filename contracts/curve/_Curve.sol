@@ -16,7 +16,7 @@ contract Curve {
     address public VESTING_MULTISIG_ADDR = 0x0;  // TODO
     address public HARVEST_MULTISIG_ADDR = 0x0; // TODO
 
-    uint256 private DEV_PCT_DAI = 5 * 10**16; // 5%
+    uint256 private DEV_PCT_LP = 5 * 10**16; // 5%
     uint256 private DEV_PCT_ARRAY = 2 * 10**17; // 20%
     uint256 private DAO_PCT_ARRAY = 5 * 10**16;  // 5%
     uint256 private PRECISION = 10**18;
@@ -30,6 +30,7 @@ contract Curve {
     uint256 private STARTING_ARRAY_MINTED = 10000 * PRECISION;
 
     // Keeps track of LP tokens
+    // TODO: update this with LP balance from 
     uint256 public virtualBalance = STARTING_DAI_BALANCE;
 
     // Keeps track of ARRAY minted for bonding curve
@@ -96,48 +97,48 @@ contract Curve {
 
     function buy(address token, uint256 amount) public nonReentrant {  // TODO: import nonReentrant from OZ
         require(initialized, "!initialized");
-        require(amountDai > 0, "buy: cannot deposit 0 tokens");
-        require(DAI.balanceOf(msg.sender) >= amountDai, "buy: cannot deposit more than user balance");
-
-        // TODO: deposit DAI into smartpool
-        require(DAI.transferFrom(msg.sender, address(this), amountDai));
+        require(isTokenInLP(token), "Token not in LP");
+        require(isTokenInVirtualLP(token), "Token not greenlisted");
+        require(amount > 0, "buy: cannot deposit 0 tokens");
 
         // TODO: return amount of smartpool LP tokens
+        amountLPTokenTotal = 0;
 
-        // Virtual balance - amount of LP tokens
+        // TODO: deposit assets into smartpool
+        require(LPTOKEN.transferFrom(msg.sender, address(this), amount), "Transfer failed");
 
-        // Calculate quantity of ARRAY minted based on total DAI spent
-        uint256 amountArrayTotal = CURVE.calculatePurchaseReturn(
+        // Calculate quantity of ARRAY minted based on total LP tokens
+        uint256 amountArrayMinted = CURVE.calculatePurchaseReturn(
             virtualSupply,
             virtualBalance,
             reserveRatio,
-            amountDaiDeposited
+            amountLPTokenTotal
         );
 
-        // Only track 95% of dai deposited, as 5% goes to team
-        uint256 amountDaiDeposited = amountDai * DEV_PCT_DAI / PRECISION;
-        uint256 amountDaiDevFund = amountDai - amountDaiDeposited;
+        // Only track 95% of LP deposited, as 5% goes to team
+        uint256 amountLPTokenDeposited = amountLPToken * DEV_PCT_LP / PRECISION;
+        uint256 amountLPTokenDevFund = amountLPToken - amountLPTokenDeposited;
 
         // Only mint 95% of ARRAY total to account for 5% DAI dev fund
-        uint256 amountArrayMinted = amountArrayTotal * (PRECISION - DEV_PCT_DAI);
-        require(amountArrayMinted <= MAX_ARRAY_SUPPLY, "buy: amountArrayTotal > max supply");
+        uint256 amountArrayMinted = amountArrayMinted * (PRECISION - DEV_PCT_LP);
+        require(amountArrayMinted <= MAX_ARRAY_SUPPLY, "buy: amountArrayMinted > max supply");
 
         // 20% of total ARRAY sent to Array team vesting
-        uint256 amountArrayDevFund = amountArrayTotal * DEV_PCT_ARRAY / PRECISION;
+        uint256 amountArrayDevFund = amountArrayMinted * DEV_PCT_ARRAY / PRECISION;
 
         // 5% of total ARRAY sent to DAO multisig
-        uint256 amountArrayDao = amountArrayTotal * DAO_PCT_ARRAY / PRECISION;
+        uint256 amountArrayDao = amountArrayMinted * DAO_PCT_ARRAY / PRECISION;
 
         // Remaining ARRAY goes to buyer
         uint256 amountArrayBuyer = amountArrayMinted - amountArrayDevFund - amountArrayDao;
         
-        // Update balances
-        devFundDaiBalance = devFundDaiBalance + amountDaiDevFund;
+        // Update balances (TODO?)
+        devFundLPTokenBalance = devFundLPTokenBalance + amountLPTokenDevFund;
         devFundArrayBalance = devFundArrayBalance + amountArrayDevFund;
         daoArrayBalance = daoArrayBalance + amountArrayDao;
 
         // Update virtual balance and supply
-        virtualBalance = virtualBalance + amountDaiDeposited;
+        virtualBalance = virtualBalance + amountLPTokenDeposited;
         virtualSupply = virtualSupply + amountArrayMinted;
 
         // Mint buyer's ARRAY to buyer
@@ -169,7 +170,7 @@ contract Curve {
         // update virtual balance and supply
 
 
-        emit Burned(msg.sender, amountArraySeller, amountDai);
+        emit Burned(msg.sender, amountArraySeller, amountLPToken);
     }
 
 
@@ -184,10 +185,10 @@ contract Curve {
             devFundArrayBalance = devFundArrayBalance - amount;
         } else {
 
-            require(amount <= devFundDaiBalance);
-            if (max) {amount = devFundDaiBalance;}
+            require(amount <= devFundLPTokenBalance);
+            if (max) {amount = devFundLPTokenBalance;}
             require(DAI.transfer(DEV_MULTISIG_ADDR, amount));
-            devFundDaiBalance = devFundDaiBalance - amount;
+            devFundLPTokenBalance = devFundLPTokenBalance - amount;
         }
 
         emit WithdrawDevFunds(token, amount);
