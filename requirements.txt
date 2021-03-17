@@ -1,4 +1,3 @@
 eth-brownie>=1.13.4
 pytest>=6.0.1
-w3helpers>=0.0.6
 rich>=9.12.4
