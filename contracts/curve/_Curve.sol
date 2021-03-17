@@ -29,14 +29,14 @@ contract Curve {
     // Starting supply of 10k ARRAY
     uint256 private STARTING_ARRAY_MINTED = 10000 * PRECISION;
 
-    // Keeps track of DAI deposited
+    // Keeps track of LP tokens
     uint256 public virtualBalance = STARTING_DAI_BALANCE;
 
-    // Keeps track of supply minted for bonding curve
+    // Keeps track of ARRAY minted for bonding curve
     uint256 public virtualSupply = STARTING_ARRAY_MINTED;
 
     // Keeps track of DAI for team multisig
-    uint256 public devFundDaiBalance;
+    uint256[] public devFundLPBalance;
 
     // Keeps track of ARRAY for team multisig
     uint256 public devFundArrayBalance;
@@ -54,9 +54,9 @@ contract Curve {
     address public devFund;
     address public gov;
     I_ERC20 public ARRAY;
-    I_ERC20 public DAI;
-	I_ERC20 public TOKENLP;
+	I_ERC20 public LPTOKEN;
     I_BondingCurve public CURVE;
+    address[] public virtualLPTokens;
 
     mapping(address => uint256) public deposits;
     mapping(address => uint256) public purchases;
@@ -71,12 +71,12 @@ contract Curve {
         address _dai,
         address _arrayToken,
         address _curve,
-		address _TokenLP
+		address _lpToken
     ) public {
         owner = _owner;
         DAI = I_ERC20(_dai);
         ARRAY = I_ERC20(_arrayToken);
-		TOKENLP = I_ERC20(_TokenLP);
+		LPTOKEN = I_ERC20(_lpToken);
         CURVE = I_BondingCurve(_curve);
     
         buy(virtualBalance);
@@ -94,11 +94,17 @@ contract Curve {
     }
 
 
-    function buy(uint256 amountDai) public nonReentrant {  // TODO: import nonReentrant from OZ
+    function buy(address token, uint256 amount) public nonReentrant {  // TODO: import nonReentrant from OZ
         require(initialized, "!initialized");
         require(amountDai > 0, "buy: cannot deposit 0 tokens");
         require(DAI.balanceOf(msg.sender) >= amountDai, "buy: cannot deposit more than user balance");
+
+        // TODO: deposit DAI into smartpool
         require(DAI.transferFrom(msg.sender, address(this), amountDai));
+
+        // TODO: return amount of smartpool LP tokens
+
+        // Virtual balance - amount of LP tokens
 
         // Calculate quantity of ARRAY minted based on total DAI spent
         uint256 amountArrayTotal = CURVE.calculatePurchaseReturn(
@@ -146,27 +152,38 @@ contract Curve {
     function sell(uint256 amountArray, bool max) {
 
         if (max) {amountArray = ARRAY.balanceOf(msg.sender);}        
-//get curve contract balance of LPtoken
-//get total supply of array token, subtract amount burned
-//get % of burned supply
-//return burned supply % as LPtoken to user
 
+        
+        // get curve contract balance of LPtoken
+
+        
+        // get total supply of array token, subtract amount burned
+
+        
+        // get % of burned supply
+
+        
+        // return burned supply % as LPtoken to user
+
+        
+        // update virtual balance and supply
 
 
         emit Burned(msg.sender, amountArraySeller, amountDai);
     }
 
 
+
     function withdrawDevFunds(address token, uint256 amount, bool max) returns (bool) {
         require(msg.sender == DEV_MULTISIG_ADDR, "withdrawDevFunds: msg.sender != DEV_MULTISIG_ADDR");
-        require(token == address(ARRAY) || token == address(DAI), "withdrawDevFunds: token != DAI || ARRAY");
 
         if (token == address(ARRAY)) {
             require(amount <= devFundArrayBalance);
             if (max) {amount = devFundArrayBalance;}
             require(ARRAY.mint(VESTING_MULTISIG_ADDR, amount));
             devFundArrayBalance = devFundArrayBalance - amount;
-        } else { // token == address(DAI)
+        } else {
+
             require(amount <= devFundDaiBalance);
             if (max) {amount = devFundDaiBalance;}
             require(DAI.transfer(DEV_MULTISIG_ADDR, amount));
@@ -175,6 +192,9 @@ contract Curve {
 
         emit WithdrawDevFunds(token, amount);
     }
+
+
+
 
     function withdrawDaoFunds(uint256 amount, bool max) returns (bool) {
         require(
@@ -189,4 +209,44 @@ contract Curve {
     }
     // TODO: make this callable only from harvest
 
+    function isTokenInLP(address token) external view returns (bool) {
+        // TODO
+    }
+
+    function isTokenInVirtualLP(address token) external view returns (bool) {
+        for (uint i=0; i=virtualLPTokens.length; i++) {
+            if (token == virtualLPTokens[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function getTokenIndexInVirtualLP(address token) external view returns (uint256) {
+        require(isTokenInVirtualLP(token), "Token not in virtual LP");
+        for (uint i=0; i=virtualLPTokens.length; i++) {
+            if (token == virtualLPTokens[i]) {
+                return i;
+            }
+        }
+    }
+
+    function addTokenToVirtualLP(address token) public {
+        require(msg.sender == gov, "msg.sender != gov");
+        require(isTokenInLP(token), "Token not in Balancer LP");
+        require(!isTokenInVirtualLP(), "Token already added to virtual LP");
+
+        virtualLPTokens.push(token);
+
+        emit AddTokenToVirtualLP(token); // TODO
+    }
+
+    function removeTokenFromVirtualLP(address token) public {
+        require(msg.sender == gov, "msg.sender != gov");
+        uint256 tokenIndex = getTokenIndexInVirtualLP(token);
+        
+        delete virtualLPTokens[tokenIndex];
+
+        emit RemoveTokenFromVirtualLP(token); // TODO 
+    }
 }
