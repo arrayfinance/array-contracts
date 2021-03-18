@@ -21,9 +21,9 @@ contract ArrayToken is Context, ERC20, AccessControlEnumerable{
         _mint(to, amount);
     }
 
-    function burn(address to, uint256 amount) external virtual {
+    function burn(address from, uint256 amount) external virtual {
         require(hasRole(BURNER_ROLE, _msgSender()), "ArrayToken: must have burner role to burn");
-        _burn(to, amount);
+        _burn(from, amount);
     }
 
 }
