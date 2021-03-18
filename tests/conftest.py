@@ -1,6 +1,5 @@
 import pytest
 from brownie import ZERO_ADDRESS, Wei, Contract
-from w3helpers import Token
 
 
 @pytest.fixture(scope='module', autouse=True)
