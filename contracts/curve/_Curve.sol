@@ -19,7 +19,7 @@ contract Curve {
 
     address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
     address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;
-	address public SMART_POOL = 0x0;
+	address public BALANCERPOOL = 0x0;
     address public VESTING_MULTISIG_ADDR = 0x0;  // TODO
     address public HARVEST_MULTISIG_ADDR = 0x0; // TODO
 
@@ -38,10 +38,13 @@ contract Curve {
 
     // Keeps track of LP tokens
     // TODO: update this with LP balance from 
-    uint256 public virtualBalance = STARTING_DAI_BALANCE;
+    uint256 public virtualBalance;
 
     // Keeps track of ARRAY minted for bonding curve
     uint256 public virtualSupply = STARTING_ARRAY_MINTED;
+
+    // Keeps track of the max amount of ARRAY supply
+    uint256 public maxSupply = 100000 * PRECISION;
 
     // Keeps track of DAI for team multisig
     uint256[] public devFundLPBalance;
@@ -63,15 +66,17 @@ contract Curve {
     address public gov;
     I_ERC20 public ARRAY;
 	I_ERC20 public LPTOKEN;
+    
     I_BondingCurve public CURVE;
     I_BalancerPoolV2 public BALANCERPOOL;
+    
     address[] public virtualLPTokens;
 
     mapping(address => uint256) public deposits;
     mapping(address => uint256) public purchases;
 
     event Buy(); // TODO
-    event Burned(address sender, uint256 amount, uint256 withdrawal);
+    event Sell(); // TODO
     event WithdrawDevFunds(address token, uint256 amount);
     event WithdrawDaoFunds(uint256 amount);
 
@@ -92,12 +97,20 @@ contract Curve {
     }
 
     function initialize(address to) public {
+
         // TODO
         require(!initialized, "intialized");
         require(msg.sender == owner, "!owner");
 
+        // Send LP tokens from governance to curve
+        initialAmountLPToken = LPTOKEN.balanceOf(gov);
+        require(LPTOKEN.transferFrom(gov, address(this), initialAmountLPToken), "Transfer failed");
+
         // Mint ARRAY to CCO
         ARRAY.mint(to, STARTING_ARRAY_MINTED);
+        
+        // 
+
 
         initialized = true;
     }
@@ -109,12 +122,8 @@ contract Curve {
         require(isTokenInVirtualLP(token), "Token not greenlisted");
         require(amount > 0, "buy: cannot deposit 0 tokens");
 
-        // TODO: return amount of smartpool LP tokens
-        amountLPTokenTotal = 0;
-
-
-        // TODO: deposit assets into smartpool
-        require(LPTOKEN.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        // TODO: calculate amount of smartpool LP tokens
+        uint256 amountLPTokenTotal = 0;
 
         // Calculate quantity of ARRAY minted based on total LP tokens
         uint256 amountArrayMinted = CURVE.calculatePurchaseReturn(
@@ -130,7 +139,7 @@ contract Curve {
 
         // Only mint 95% of ARRAY total to account for 5% DAI dev fund
         uint256 amountArrayMinted = amountArrayMinted * (PRECISION - DEV_PCT_LP);
-        require(amountArrayMinted <= MAX_ARRAY_SUPPLY, "buy: amountArrayMinted > max supply");
+        require(amountArrayMinted <= maxSupply, "buy: amountArrayMinted > max supply");
 
         // 20% of total ARRAY sent to Array team vesting
         uint256 amountArrayDevFund = amountArrayMinted * DEV_PCT_ARRAY / PRECISION;
@@ -140,7 +149,16 @@ contract Curve {
 
         // Remaining ARRAY goes to buyer
         uint256 amountArrayBuyer = amountArrayMinted - amountArrayDevFund - amountArrayDao;
+
+        // TODO: deposit assets into smartpool
+        require(LPTOKEN.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         
+        // Mint devFund's ARRAY to this contract for holding
+        ARRAY.mint(address(this), amountArrayDevFund);
+
+        // Mint buyer's ARRAY to buyer
+        ARRAY.mint(msg.sender, amountArrayBuyer);
+
         // Update balances (TODO?)
         devFundLPTokenBalance = devFundLPTokenBalance + amountLPTokenDevFund;
         devFundArrayBalance = devFundArrayBalance + amountArrayDevFund;
@@ -150,36 +168,37 @@ contract Curve {
         virtualBalance = virtualBalance + amountLPTokenDeposited;
         virtualSupply = virtualSupply + amountArrayMinted;
 
-        // Mint buyer's ARRAY to buyer
-        ARRAY.mint(msg.sender, amountArrayBuyer);
-
-        // Mint devFund's ARRAY to this contract for holding
-        ARRAY.mint(address(this), amountArrayDevFund);
-
         emit Buy(); // TODO
     }
 
     function sell(uint256 amountArray, bool max) {
 
-        if (max) {amountArray = ARRAY.balanceOf(msg.sender);}        
+        if (max) {amountArray = ARRAY.balanceOf(msg.sender);}
+        require(ARRAY.balanceOf(msg.sender) <= amountArray, "Cannot burn more than amount");
 
-        
         // get curve contract balance of LPtoken
+        uint256 curveLPTokenBalance = LPTOKEN.balanceOf(address(this));
 
-        
         // get total supply of array token, subtract amount burned
-
+        uint256 amountArrayAfterBurn = virtualSupply - amountArray;
         
         // get % of burned supply
+        uint256 pctArrayBurned = amountArrayAfterBurn * PRECISION / virtualSupply;
 
-        
-        // return burned supply % as LPtoken to user
+        // calculate how much of the LP token the burner gets
+        uint256 amountLPTokenReturned = pctArrayBurned * virtualBalance / PRECISION;
 
+        // burn token TODO
+        ARRAY.burn(msg.sender, amountArray);
+
+        // send to burner
+        require(LPTOKEN.transfer(msg.sender, amountLPTokenReturned), "Transfer failed");
         
         // update virtual balance and supply
+        virtualBalance = virtualBalance - amountLPTokenReturned;
+        virtualSupply = virtualSupply - amountArray;
 
-
-        emit Burned(msg.sender, amountArraySeller, amountLPToken);
+        emit Sell();  // TODO
     }
 
 
