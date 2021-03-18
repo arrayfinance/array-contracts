@@ -1,11 +1,18 @@
 pragma solidity ^0.8.0;
 
 interface I_ERC20 {
-    // TODO
+    function mint() ;
+    function transferFrom() ;
+    function transfer() ;
+    function balanceOf();
 }
 
-interface I_BondingCurve{
-    // TODO
+interface I_BondingCurve {
+    function calculatePurchaseReturn();
+}
+
+interface I_BalancerPoolV2 {
+    function queryJoinGivenIn();
 }
 
 contract Curve {
@@ -57,6 +64,7 @@ contract Curve {
     I_ERC20 public ARRAY;
 	I_ERC20 public LPTOKEN;
     I_BondingCurve public CURVE;
+    I_BalancerPoolV2 public BALANCERPOOL;
     address[] public virtualLPTokens;
 
     mapping(address => uint256) public deposits;
@@ -103,6 +111,7 @@ contract Curve {
 
         // TODO: return amount of smartpool LP tokens
         amountLPTokenTotal = 0;
+
 
         // TODO: deposit assets into smartpool
         require(LPTOKEN.transferFrom(msg.sender, address(this), amount), "Transfer failed");
