@@ -29,11 +29,11 @@ def isolation(fn_isolation):
 def pool(interface, someguy, accounts, uni, dai, usdc):
     accounts.default = someguy
     uni.swapExactETHForTokens( 0, [uni.WETH(), dai.address], someguy.address, int( time.time() ) + 1000,
-                               {'from': someguy.address, 'value': '10 ether'} )
+                               {'from': someguy.address, 'value': '50 ether'} )
 
     uni.swapExactETHForTokens( 0, [uni.WETH(), usdc.address], someguy.address, int( time.time() ) + 1000,
-                               {'from': someguy.address, 'value': '10 ether'} )
-    PoolParams = ['ARRAYLP', 'Array LP', [usdc, dai], [100e6, 100e18], [25e18, 25e18], 1e14]
+                               {'from': someguy.address, 'value': '50 ether'} )
+    PoolParams = ['ARRAYLP', 'Array LP', [usdc, dai], [1000e6, 1000e18], [25e18, 25e18], 1e14]
     PoolRights = [True, True, True, True, False, True]
     crpfact = interface.fact( '0xed52D8E202401645eDAD1c0AA21e872498ce47D0' )
     tx = crpfact.newCrp( '0x9424B1412450D0f8Fc2255FAf6046b98213B76Bd', PoolParams, PoolRights )
@@ -50,10 +50,17 @@ def createdpool(someguy, pool, accounts, usdc, dai):
     yield pool
 
 
+def test_lpin(someguy, accounts, createdpool, dai):
+    accounts.default = someguy
+    before = dai.balanceOf( someguy )
+    tx = createdpool.exitswapPoolAmountIn( dai.address, 100, 0 )
+    after = dai.balanceOf( someguy )
+    assert tx.return_value == after - before
+
+
 def test_pool_in(someguy, accounts, createdpool, dai):
     accounts.default = someguy
-    daibal = dai.balanceOf( someguy )
-    createdpool.exitswapExternAmountOut(dai.address, 1000, 2*256-1)
-    assert dai.balanceOf( someguy ) == daibal + 1000
-    createdpool.joinswapExternAmountIn( dai.address, 1000, 0 )
-    assert dai.balanceOf( someguy ) == daibal - 1000  + 1000
+    before = createdpool.balanceOf( someguy )
+    tx = createdpool.joinswapExternAmountIn( dai.address, 100, 0 )
+    after = createdpool.balanceOf( someguy )
+    assert tx.return_value == after - before
