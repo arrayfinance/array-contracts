@@ -1,14 +1,14 @@
 pragma solidity ^0.8.0;
 
 interface I_ERC20 {
-    function mint() ;
-    function transferFrom() ;
-    function transfer() ;
-    function balanceOf();
+    function mint(address _to, uint256 amount) public;
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool success);
+    function transfer(address _to, uint256 _value) public returns (bool success);
+    function balanceOf(address _owner) public view returns (uint256 balance);
 }
 
 interface I_BondingCurve {
-    function calculatePurchaseReturn();
+    function purchaseTargetAmount(uint256 _supply, uint256 _reserveBalance, uint32 _reserveWeight, uint256 _amount) public view returns (uint256);
 }
 
 interface I_BalancerPoolV2 {
