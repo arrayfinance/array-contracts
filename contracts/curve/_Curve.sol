@@ -17,6 +17,7 @@ interface I_BalancerPoolV2 {
 
 contract Curve {
 
+    
     address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
     address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;
 	address public BALANCERPOOL = 0x0;
@@ -28,6 +29,9 @@ contract Curve {
     uint256 private DAO_PCT_ARRAY = 5 * 10**16;  // 5%
     uint256 private PRECISION = 10**18;
 
+    uint256 public m = 10**12;  // 1/1,000,000 (used for y = mx in curve)
+    uint
+
     uint256 public MAX_ARRAY_SUPPLY = 100000 * PRECISION;
 
     // Represents the 700k DAI spent for initial 10k tokens
@@ -37,7 +41,7 @@ contract Curve {
     uint256 private STARTING_ARRAY_MINTED = 10000 * PRECISION;
 
     // Keeps track of LP tokens
-    // TODO: update this with LP balance from 
+    // TODO: update this with LP balance from balancer
     uint256 public virtualBalance;
 
     // Keeps track of ARRAY minted for bonding curve
@@ -56,7 +60,7 @@ contract Curve {
     uint256 public daoArrayBalance;
 
     // Used to calculate bonding curve slope
-    uint32 public reserveRatio; // TODO
+    uint32 public reserveRatio = 333333; // symbolizes 1/3, based on bancor's max of 1/1,000,000
 
     // Initial purchase of ARRAY from the CCO
     bool private initialized;
@@ -122,23 +126,14 @@ contract Curve {
         require(isTokenInVirtualLP(token), "Token not greenlisted");
         require(amount > 0, "buy: cannot deposit 0 tokens");
 
-        // TODO: calculate amount of smartpool LP tokens
-        uint256 amountLPTokenTotal = 0;
-
-        // Calculate quantity of ARRAY minted based on total LP tokens
-        uint256 amountArrayMinted = CURVE.calculatePurchaseReturn(
-            virtualSupply,
-            virtualBalance,
-            reserveRatio,
-            amountLPTokenTotal
-        );
+        uint256 amountArrayReturned = calculateArrayReturned(token, amount);
 
         // Only track 95% of LP deposited, as 5% goes to team
         uint256 amountLPTokenDeposited = amountLPToken * DEV_PCT_LP / PRECISION;
         uint256 amountLPTokenDevFund = amountLPToken - amountLPTokenDeposited;
 
         // Only mint 95% of ARRAY total to account for 5% DAI dev fund
-        uint256 amountArrayMinted = amountArrayMinted * (PRECISION - DEV_PCT_LP);
+        uint256 amountArrayMinted = amountArrayReturned * (PRECISION - DEV_PCT_LP);
         require(amountArrayMinted <= maxSupply, "buy: amountArrayMinted > max supply");
 
         // 20% of total ARRAY sent to Array team vesting
@@ -201,6 +196,7 @@ contract Curve {
         emit Sell();  // TODO
     }
 
+    
 
 
     function withdrawDevFunds(address token, uint256 amount, bool max) returns (bool) {
@@ -222,9 +218,7 @@ contract Curve {
         emit WithdrawDevFunds(token, amount);
     }
 
-
-
-
+    // TODO: make this callable only from harvest
     function withdrawDaoFunds(uint256 amount, bool max) returns (bool) {
         require(
             msg.sender == DAO_MULTISIG_ADDR || msg.sender == HARVEST_ADDR,
@@ -236,7 +230,26 @@ contract Curve {
 
         emit WithdrawDaoFunds(amount);
     }
-    // TODO: make this callable only from harvest
+
+
+    function calculateArrayReturned(
+        address token, uint256 amount
+    ) external view returns (uint256 amountArrayToMintNormalized) {
+        // TODO: calculate amount of smartpool LP tokens returned
+        uint256 amountLPTokenTotal = 0;
+
+        // Calculate quantity of ARRAY minted based on total LP tokens (Does not account for M)
+        uint256 amountArrayToMint = CURVE.calculatePurchaseReturn(
+            virtualSupply,
+            virtualBalance,
+            reserveRatio,
+            amountLPTokenTotal
+        );
+
+        // Multiply by M to get tokens returned
+        uint256 amountArrayToMintNormalized = amountArrayToMint * M / PRECISION;
+    }
+
 
     function isTokenInLP(address token) external view returns (bool) {
         // TODO
