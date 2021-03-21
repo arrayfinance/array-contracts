@@ -1,5 +1,6 @@
 from brownie import *
 from dataclasses import dataclass, asdict
+from rich.status import Status
 from dotmap import DotMap
 from w3helpers import Token, Uniswap
 import time
@@ -75,13 +76,23 @@ PoolParams = ['ARRAYLP', 'Array LP', tokens, [_ for _ in balances.values()], wei
 PoolRights = [True, True, True, True, False, True]
 crpfact = interface.fact( '0xed52D8E202401645eDAD1c0AA21e872498ce47D0' )
 tx = crpfact.newCrp( '0x9424B1412450D0f8Fc2255FAf6046b98213B76Bd', PoolParams, PoolRights )
-poolcontract = interface.pool( tx.return_value )
+po = interface.pool( tx.return_value )
 
-c.weth.approve( poolcontract.address, 2 ** 256 - 1 )
-c.dai.approve( poolcontract.address, 2 ** 256 - 1 )
-c.ren.approve( poolcontract.address, 2 ** 256 - 1 )
-c.usdc.approve( poolcontract.address, 2 ** 256 - 1 )
-c.wbtc.approve( poolcontract.address, 2 ** 256 - 1 )
+c.weth.approve( po.address, 2 ** 256 - 1 )
+c.dai.approve( po.address, 2 ** 256 - 1 )
+c.ren.approve( po.address, 2 ** 256 - 1 )
+c.usdc.approve( po.address, 2 ** 256 - 1 )
+c.wbtc.approve( po.address, 2 ** 256 - 1 )
 
-poolcontract.createPool( 100e18 )
+po.createPool( 100e18 )
+bp = interface.bpool( po.bPool() )
 
+
+def getbalances():
+    for key, value in c.items():
+        dec = value.decimals()
+        bal = bp.getBalance( value.address ) / 10 ** dec
+        print( f'{key} : {bal:.4f}' )
+
+
+getbalances()
