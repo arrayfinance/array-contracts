@@ -3,14 +3,18 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Context.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
-contract ArrayToken is Context, ERC20, AccessControlEnumerable{
+contract ArrayToken is Context, ERC20Permit, AccessControlEnumerable {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("PAUSER_ROLE");
 
-    constructor(string memory name, string memory symbol, address curveController) ERC20(name, symbol) {
+    constructor(string memory name, string memory symbol, address curveController)
+    ERC20(name, symbol)
+    ERC20Permit(name)
+
+    {
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _setupRole(MINTER_ROLE, curveController);
         _setupRole(BURNER_ROLE, curveController);
