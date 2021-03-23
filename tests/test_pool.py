@@ -112,27 +112,31 @@ def isolation(fn_isolation):
 
 @pytest.fixture
 def pool(richguy, dm, accounts, interface):
+
     accounts.default = richguy
     tokens = [_.address for _ in dm.contracts]
     balances = [_ for _ in dm.balances.values()]
 
-    weights = [dm.weth.weight * 1e18 / 2.5, dm.wbtc.weight * 1e18 / 2.5, dm.renbtc.weight * 1e18 / 2.5,
-               dm.dai.weight * 1e18 / 2.5, dm.usdc.weight * 1e18 / 2.5]
+    weights = [_/2.5 for _ in dm.weights.values()]
 
     PoolParams = ['ARRAYLP', 'Array LP', tokens, balances, weights, 1e14]
     PoolRights = [True, True, True, True, False, True]
     crpfact = interface.fact( '0xed52D8E202401645eDAD1c0AA21e872498ce47D0' )
     tx = crpfact.newCrp( '0x9424B1412450D0f8Fc2255FAf6046b98213B76Bd', PoolParams, PoolRights )
     poolcontract = interface.pool( tx.return_value )
+
     yield poolcontract
 
 
 @pytest.fixture
-def createdpool(someguy, pool, accounts, usdc, dai):
-    accounts.default = someguy
-    usdc.approve( pool.address, 2 ** 256 - 1 )
-    dai.approve( pool.address, 2 ** 256 - 1 )
+def createdpool(richguy, pool, accounts, dm):
+    accounts.default = richguy
+
+    for _ in dm.contracts.values():
+        _.approve(pool.address, 2**256-1)
+
     pool.createPool( 1e20 )
+
     yield pool
 
 
