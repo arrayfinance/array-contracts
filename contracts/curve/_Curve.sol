@@ -1,5 +1,7 @@
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/security/ReeentrancyGuard.sol";
+
 interface I_ERC20 {
     function mint(address _to, uint256 amount) public;
     function transferFrom(address _from, address _to, uint256 _value) public returns (bool success);
@@ -11,18 +13,18 @@ interface I_BondingCurve {
     function purchaseTargetAmount(uint256 _supply, uint256 _reserveBalance, uint32 _reserveWeight, uint256 _amount) public view returns (uint256);
 }
 
-interface I_BalancerPoolV2 {
-    function queryJoinGivenIn();
+interface I_SmartPool {
+    function getTokens() external view returns (address[] memory);
+    function calcPoolOutGivenSingleIn(address _token, uint256 _amount) external view returns (uint256);
+    function joinswapExternAmountIn(address _token, uint256 _amountIn, uint256 _minPoolAmountOut) external returns (uint256);
 }
 
-contract Curve {
+contract Curve is ReentrancyGuard {
 
-    
     address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
     address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;
-	address public BALANCERPOOL = 0x0;
     address public VESTING_MULTISIG_ADDR = 0x0;  // TODO
-    address public HARVEST_MULTISIG_ADDR = 0x0; // TODO
+    // address public HARVEST_MULTISIG_ADDR = 0x0; // TODO
 
     uint256 private DEV_PCT_LP = 5 * 10**16; // 5%
     uint256 private DEV_PCT_ARRAY = 2 * 10**17; // 20%
@@ -30,7 +32,6 @@ contract Curve {
     uint256 private PRECISION = 10**18;
 
     uint256 public m = 10**12;  // 1/1,000,000 (used for y = mx in curve)
-    uint
 
     uint256 public MAX_ARRAY_SUPPLY = 100000 * PRECISION;
 
@@ -41,11 +42,10 @@ contract Curve {
     uint256 private STARTING_ARRAY_MINTED = 10000 * PRECISION;
 
     // Keeps track of LP tokens
-    // TODO: update this with LP balance from balancer
     uint256 public virtualBalance;
 
     // Keeps track of ARRAY minted for bonding curve
-    uint256 public virtualSupply = STARTING_ARRAY_MINTED;
+    uint256 public virtualSupply;
 
     // Keeps track of the max amount of ARRAY supply
     uint256 public maxSupply = 100000 * PRECISION;
@@ -60,6 +60,7 @@ contract Curve {
     uint256 public daoArrayBalance;
 
     // Used to calculate bonding curve slope
+    // Returns same result as x^2
     uint32 public reserveRatio = 333333; // symbolizes 1/3, based on bancor's max of 1/1,000,000
 
     // Initial purchase of ARRAY from the CCO
@@ -68,71 +69,76 @@ contract Curve {
     address public owner;
     address public devFund;
     address public gov;
+
+    address[] public virtualLPTokens;
+    
     I_ERC20 public ARRAY;
 	I_ERC20 public LPTOKEN;
-    
     I_BondingCurve public CURVE;
-    I_BalancerPoolV2 public BALANCERPOOL;
-    
-    address[] public virtualLPTokens;
+    I_SmartPool public SMARTPOOL;
 
     mapping(address => uint256) public deposits;
     mapping(address => uint256) public purchases;
 
-    event Buy(); // TODO
-    event Sell(); // TODO
+    event Buy(
+        address from,
+        address token,
+        uint256 amount,
+        uint256 amountLPTokenDeposited,
+        uint256 amountArrayMinted
+    );
+    event Sell(address from, uint256 amountArray, uint256 amountLPTokenReturned);
     event WithdrawDevFunds(address token, uint256 amount);
     event WithdrawDaoFunds(uint256 amount);
 
     constructor(
         address _owner,
-        address _dai,
         address _arrayToken,
+		address _lpToken,
         address _curve,
-		address _lpToken
+        address _smartPool
     ) public {
         owner = _owner;
-        DAI = I_ERC20(_dai);
         ARRAY = I_ERC20(_arrayToken);
 		LPTOKEN = I_ERC20(_lpToken);
         CURVE = I_BondingCurve(_curve);
+        SMARTPOOL = I_SmartPool(_smartPool);
     
         buy(virtualBalance);
     }
 
     function initialize(address to) public {
 
-        // TODO
         require(!initialized, "intialized");
         require(msg.sender == owner, "!owner");
 
         // Send LP tokens from governance to curve
-        initialAmountLPToken = LPTOKEN.balanceOf(gov);
+        initialAmountLPToken = LPTOKEN.balanceOf(address(this));
         require(LPTOKEN.transferFrom(gov, address(this), initialAmountLPToken), "Transfer failed");
 
         // Mint ARRAY to CCO
-        ARRAY.mint(to, STARTING_ARRAY_MINTED);
+        ARRAY.mint(DAO_MULTISIG_ADDR, STARTING_ARRAY_MINTED);
         
-        // 
-
-
+        // Set virtual balance and supply
+        virtualBalance = initialAmountLPToken;
+        virtualSupply = STARTING_ARRAY_MINTED;
         initialized = true;
     }
 
 
-    function buy(address token, uint256 amount) public nonReentrant {  // TODO: import nonReentrant from OZ
+    function buy(address token, uint256 amount) public nonReentrant {
         require(initialized, "!initialized");
         require(isTokenInLP(token), "Token not in LP");
         require(isTokenInVirtualLP(token), "Token not greenlisted");
         require(amount > 0, "buy: cannot deposit 0 tokens");
 
-        uint256 amountArrayReturned = calculateArrayReturned(token, amount);
+        uint256 amountArrayReturned = calculateArrayGivenTokenAndAmount(token, amount);
 
         // Only track 95% of LP deposited, as 5% goes to team
         uint256 amountLPTokenDeposited = amountLPToken * DEV_PCT_LP / PRECISION;
         uint256 amountLPTokenDevFund = amountLPToken - amountLPTokenDeposited;
 
-        // Only mint 95% of ARRAY total to account for 5% DAI dev fund
+        // Only mint 95% of ARRAY total to account for 5% LP dev fund
         uint256 amountArrayMinted = amountArrayReturned * (PRECISION - DEV_PCT_LP);
         require(amountArrayMinted <= maxSupply, "buy: amountArrayMinted > max supply");
 
@@ -145,8 +151,8 @@ contract Curve {
         // Remaining ARRAY goes to buyer
         uint256 amountArrayBuyer = amountArrayMinted - amountArrayDevFund - amountArrayDao;
 
-        // TODO: deposit assets into smartpool
-        require(LPTOKEN.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        // Deposit assets into smartpool (TODO: validate)
+        SMARTPOOL.joinswapExternAmountIn(token, amount, 0);
         
         // Mint devFund's ARRAY to this contract for holding
         ARRAY.mint(address(this), amountArrayDevFund);
@@ -163,10 +169,10 @@ contract Curve {
         virtualBalance = virtualBalance + amountLPTokenDeposited;
         virtualSupply = virtualSupply + amountArrayMinted;
 
-        emit Buy(); // TODO
+        emit Buy(msg.sender, token, amount, amountLPTokenDeposited, amountArrayMinted);
     }
 
-    function sell(uint256 amountArray, bool max) {
+    function sell(uint256 amountArray, bool max) external {
 
         if (max) {amountArray = ARRAY.balanceOf(msg.sender);}
         require(ARRAY.balanceOf(msg.sender) <= amountArray, "Cannot burn more than amount");
@@ -183,7 +189,7 @@ contract Curve {
         // calculate how much of the LP token the burner gets
         uint256 amountLPTokenReturned = pctArrayBurned * virtualBalance / PRECISION;
 
-        // burn token TODO
+        // burn token
         ARRAY.burn(msg.sender, amountArray);
 
         // send to burner
@@ -193,13 +199,11 @@ contract Curve {
         virtualBalance = virtualBalance - amountLPTokenReturned;
         virtualSupply = virtualSupply - amountArray;
 
-        emit Sell();  // TODO
+        emit Sell(msg.sender, amountArray, amountLPTokenReturned);
     }
 
-    
 
-
-    function withdrawDevFunds(address token, uint256 amount, bool max) returns (bool) {
+    function withdrawDevFunds(address token, uint256 amount, bool max) external returns (bool) {
         require(msg.sender == DEV_MULTISIG_ADDR, "withdrawDevFunds: msg.sender != DEV_MULTISIG_ADDR");
 
         if (token == address(ARRAY)) {
@@ -219,7 +223,7 @@ contract Curve {
     }
 
     // TODO: make this callable only from harvest
-    function withdrawDaoFunds(uint256 amount, bool max) returns (bool) {
+    function withdrawDaoFunds(uint256 amount, bool max) external returns (bool) {
         require(
             msg.sender == DAO_MULTISIG_ADDR || msg.sender == HARVEST_ADDR,
             "withdrawDaoFunds: msg.sender != DAO_MULTISIG_ADDR || HARVEST_ADDR"
@@ -232,14 +236,14 @@ contract Curve {
     }
 
 
-    function calculateArrayReturned(
+    function calculateArrayGivenTokenAndAmount(
         address token, uint256 amount
-    ) external view returns (uint256 amountArrayToMintNormalized) {
-        // TODO: calculate amount of smartpool LP tokens returned
-        uint256 amountLPTokenTotal = 0;
+    ) public view returns (uint256 amountArrayToMintNormalized) {
+        // Calculate amount of smartpool LP tokens returned
+        uint256 amountLPTokenTotal = SMARTPOOL.calcPoolOutGivenSingleIn(token, amount);
 
         // Calculate quantity of ARRAY minted based on total LP tokens (Does not account for M)
-        uint256 amountArrayToMint = CURVE.calculatePurchaseReturn(
+        uint256 amountArrayToMint = CURVE.purchaseTargetAmount(
             virtualSupply,
             virtualBalance,
             reserveRatio,
@@ -247,12 +251,18 @@ contract Curve {
         );
 
         // Multiply by M to get tokens returned
-        uint256 amountArrayToMintNormalized = amountArrayToMint * M / PRECISION;
+        amountArrayToMintNormalized = amountArrayToMint * m / PRECISION;
     }
 
 
     function isTokenInLP(address token) external view returns (bool) {
-        // TODO
+        address[] lpTokens = SMARTPOOL.getTokens();
+        for (uint i=0; i=lpTokens.length; i++) {
+            if (token == lpTokens[i]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function isTokenInVirtualLP(address token) external view returns (bool) {
