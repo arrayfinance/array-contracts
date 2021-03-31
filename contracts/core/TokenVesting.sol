@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity 0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -8,7 +10,7 @@ contract TokenVesting is Ownable {
 
     // beneficiary of tokens after they are released
     address public immutable beneficiary = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C; //dev multisig addr
-    IERC20 public immutable token = IERC20(0x0); //todo: add array token address
+    IERC20 public immutable token = IERC20(address(0)); //todo: add array token address
 
     // Durations and timestamps are expressed in UNIX time, the same units as block.timestamp.
     uint256 public cliff;
