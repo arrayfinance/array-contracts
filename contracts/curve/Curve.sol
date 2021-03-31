@@ -287,7 +287,7 @@ contract Curve is ReentrancyGuard {
 
         uint256 amountArrayReturned = calculateArrayGivenTokenAndAmount(token, amount);
 
-        // @TODO ?????? (GISMAR)
+        // @TODO (GISMAR)
         // Only track 95% of LP deposited, as 5% goes to team
         uint256 amountLPTokenDeposited = amountArrayReturned * DEV_PCT_LP / PRECISION;
         uint256 amountLPTokenDevFund = amountArrayReturned - amountLPTokenDeposited;
