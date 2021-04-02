@@ -7,7 +7,7 @@ console = Console()
 
 
 @pytest.fixture( scope='module', autouse=True )
-def dai(interface, someguy):
+def dai(interface):
     yield interface.ERC20( '0x6b175474e89094c44da98b954eedeac495271d0f' )
 
 
@@ -32,16 +32,6 @@ def weth(interface):
 
 
 @pytest.fixture( scope='module', autouse=True )
-def richguy(someguy, dai, usdc, renbtc, wbtc, weth, whale):
-    dai.transfer( someguy, 1e24, {'from': whale.dai} )
-    usdc.transfer( someguy, 1e12, {'from': whale.usdc} )
-    renbtc.transfer( someguy, 1e14, {'from': whale.renbtc} )
-    wbtc.transfer( someguy, 1e14, {'from': whale.wbtc} )
-    weth.deposit( 100e18, {'from': someguy} )
-    yield someguy
-
-
-@pytest.fixture( scope='module', autouse=True )
 def tokens(renbtc, weth, wbtc, dai, usdc):
     yield [weth.address, wbtc.address, renbtc.address, dai.address, usdc.address]
 
@@ -49,10 +39,11 @@ def tokens(renbtc, weth, wbtc, dai, usdc):
 @pytest.fixture( scope='module', autouse=True )
 def uniswap_pairs(interface):
     p = DotMap()
-    p.ren = interface.pair( '0x81fbef4704776cc5bba0a5df3a90056d2c6900b3' )
+    p.renbtc = interface.pair( '0x81fbef4704776cc5bba0a5df3a90056d2c6900b3' )
     p.wbtc = interface.pair( '0xBb2b8038a1640196FbE3e38816F3e67Cba72D940' )
     p.dai = interface.pair( '0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11' )
     p.usdc = interface.pair( '0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc' )
+    yield p
 
 
 @pytest.fixture( scope='module', autouse=True )
@@ -111,46 +102,49 @@ def isolation(fn_isolation):
 
 
 @pytest.fixture
-def pool(richguy, dm, accounts, interface):
+def richguy(someguy, dai, usdc, renbtc, wbtc, weth, whale):
+    dai.transfer( someguy, 1e24, {'from': whale.dai} )
+    usdc.transfer( someguy, 1e12, {'from': whale.usdc} )
+    renbtc.transfer( someguy, 1e11, {'from': whale.renbtc} )
+    wbtc.transfer( someguy, 1e11, {'from': whale.wbtc} )
+    weth.deposit( {'from': someguy, 'value': 100e18} )
+    yield someguy
 
+
+@pytest.fixture
+def pool(richguy, items, accounts, interface):
     accounts.default = richguy
-    tokens = [_.address for _ in dm.contracts]
-    balances = [_ for _ in dm.balances.values()]
-
-    weights = [_/2.5 for _ in dm.weights.values()]
-
+    tokens = [_.address for _ in items.contracts.values()]
+    balances = [_ for _ in items.balances.values()]
+    weights = [_ * 1e19 for _ in items.weights.values()]
     PoolParams = ['ARRAYLP', 'Array LP', tokens, balances, weights, 1e14]
     PoolRights = [True, True, True, True, False, True]
     crpfact = interface.fact( '0xed52D8E202401645eDAD1c0AA21e872498ce47D0' )
     tx = crpfact.newCrp( '0x9424B1412450D0f8Fc2255FAf6046b98213B76Bd', PoolParams, PoolRights )
     poolcontract = interface.pool( tx.return_value )
 
+    for _ in items.contracts.values():
+        _.approve( poolcontract.address, 2 ** 256 - 1 )
+
+    poolcontract.createPool( 1e20 )
+    poolcontract.setCap( 1e50 )
     yield poolcontract
 
 
-@pytest.fixture
-def createdpool(richguy, pool, accounts, dm):
-    accounts.default = richguy
-
-    for _ in dm.contracts.values():
-        _.approve(pool.address, 2**256-1)
-
-    pool.createPool( 1e20 )
-
-    yield pool
-
-
-def test_lpin(someguy, accounts, createdpool, dai):
+# puts 100 lp tokens in and gets some DAI out
+def test_lpin(someguy, accounts, pool, dai):
     accounts.default = someguy
     before = dai.balanceOf( someguy )
-    tx = createdpool.exitswapPoolAmountIn( dai.address, 100, 0 )
+    tx = pool.exitswapPoolAmountIn( dai.address, 100, 0 )
     after = dai.balanceOf( someguy )
+    # check that the dai was added to user
     assert tx.return_value == after - before
 
 
-def test_pool_in(someguy, accounts, createdpool, dai):
+# puts 100 DAI in and gets some pool tokens out
+def test_pool_in(someguy, accounts, pool, dai):
     accounts.default = someguy
-    before = createdpool.balanceOf( someguy )
-    tx = createdpool.joinswapExternAmountIn( dai.address, 100, 0 )
-    after = createdpool.balanceOf( someguy )
+    before = pool.balanceOf( someguy )
+    tx = pool.joinswapExternAmountIn( dai.address, 100 * 1e18, 0 )
+    after = pool.balanceOf( someguy )
     assert tx.return_value == after - before
