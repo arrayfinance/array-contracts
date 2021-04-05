@@ -165,17 +165,17 @@ interface I_SmartPool{
 
 contract Curve is ReentrancyGuard {
 
-    address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
-    address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;
-    address public VESTING_MULTISIG_ADDR = address(0);  // TODO
-    address public HARVEST_MULTISIG_ADDR = address(0); // TODO
-
-    uint256 private DEV_PCT_LP = 5 * 10**16; // 5%
-    uint256 private DEV_PCT_ARRAY = 2 * 10**17; // 20%
-    uint256 private DAO_PCT_ARRAY = 5 * 10**16;  // 5%
+//    address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
+//    address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;
+//    address public VESTING_MULTISIG_ADDR = address(0);  // TODO
+//    address public HARVEST_MULTISIG_ADDR = address(0); // TODO
+//
+//    uint256 private DEV_PCT_LP = 5 * 10**16; // 5%
+//    uint256 private DEV_PCT_ARRAY = 2 * 10**17; // 20%
+//    uint256 private DAO_PCT_ARRAY = 5 * 10**16;  // 5%
     uint256 private PRECISION = 10**18;
-
-    uint256 public m = 10**12;  // 1/1,000,000 (used for y = mx in curve)
+//
+//    uint256 public m = 10**12;  // 1/1,000,000 (used for y = mx in _curve)
 
     uint256 public MAX_ARRAY_SUPPLY = 100000 * PRECISION;
 
@@ -188,7 +188,7 @@ contract Curve is ReentrancyGuard {
     // Keeps track of LP tokens
     uint256 public virtualBalance;
 
-    // Keeps track of ARRAY minted for bonding curve
+    // Keeps track of ARRAY minted for bonding _curve
     uint256 public virtualSupply;
 
     // Keeps track of the max amount of ARRAY supply
@@ -196,15 +196,15 @@ contract Curve is ReentrancyGuard {
 
     // @TODO Why an array?? (GISMAR)
     // Keeps track of DAI for team multisig
-    uint256 public devFundLPBalance;
+//    uint256 public devFundLPBalance;
 
     // Keeps track of ARRAY for team multisig
-    uint256 public devFundArrayBalance;
+//    uint256 public devFundArrayBalance;
 
     // Keeps track of ARRAY for DAO multisig
-    uint256 public daoArrayBalance;
+//    uint256 public daoArrayBalance;
 
-    // Used to calculate bonding curve slope
+    // Used to calculate bonding _curve slope
     // Returns same result as x^2
     uint32 public reserveRatio = 333333; // symbolizes 1/3, based on bancor's max of 1/1,000,000
 
@@ -219,11 +219,10 @@ contract Curve is ReentrancyGuard {
 
     I_ERC20 public DAI = I_ERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     I_ERC20 public ARRAY;
-    I_BondingCurve public CURVE;
     I_SmartPool public SP_TOKEN;
 
-    mapping(address => uint256) public deposits;
-    mapping(address => uint256) public purchases;
+//    mapping(address => uint256) public deposits;
+//    mapping(address => uint256) public purchases;
 
     event Buy(
         address from,
@@ -232,6 +231,7 @@ contract Curve is ReentrancyGuard {
         uint256 amountLPTokenDeposited,
         uint256 amountArrayMinted
     );
+
     event Sell(address from, uint256 amountArray, uint256 amountLPTokenReturned);
     event WithdrawDevFunds(address token, uint256 amount);
     event WithdrawDaoFunds(uint256 amount);
@@ -239,7 +239,6 @@ contract Curve is ReentrancyGuard {
     constructor(
         address _owner,
         address _arrayToken,
-		address _lpToken,
         address _curve,
         address _smartPool
     ) {
@@ -255,7 +254,7 @@ contract Curve is ReentrancyGuard {
         require(!initialized, "intialized");
         require(msg.sender == owner, "!owner");
 
-        // Send LP tokens from governance to curve
+        // Send LP tokens from governance to _curve
         initialAmountLPToken = SP_TOKEN.balanceOf(address(this));
         require(SP_TOKEN.transferFrom(gov, address(this), initialAmountLPToken), "Transfer failed");
 
@@ -268,60 +267,60 @@ contract Curve is ReentrancyGuard {
         initialized = true;
     }
 
-    function isTokenInLP(address token) external view returns (bool) {
-        address[] memory lpTokens = SP_TOKEN.getCurrentTokens();
-        for (uint i=0; i <= lpTokens.length; i++) {
-            if (token == lpTokens[i]) {
-                return true;
-            }
-        }
-        return false;
-    }
+//    function isTokenInLP(address token) external view returns (bool) {
+//        address[] memory lpTokens = SP_TOKEN.getCurrentTokens();
+//        for (uint i=0; i <= lpTokens.length; i++) {
+//            if (token == lpTokens[i]) {
+//                return true;
+//            }
+//        }
+//        return false;
+//    }
 
 
     function buy(address token, uint256 amount) public nonReentrant {
         require(initialized, "!initialized");
-        require(this.isTokenInLP(token), "Token not in LP");
-        require(this.isTokenInVirtualLP(token), "Token not greenlisted");
+//        require(this.isTokenInLP(token), "Token not in LP");
+//        require(this.isTokenInVirtualLP(token), "Token not greenlisted");
         require(amount > 0, "buy: cannot deposit 0 tokens");
 
         uint256 amountArrayReturned = calculateArrayGivenTokenAndAmount(token, amount);
 
-        // @TODO (GISMAR)
+//         @TODO (GISMAR)
         // Only track 95% of LP deposited, as 5% goes to team
-        uint256 amountLPTokenDeposited = amountArrayReturned * DEV_PCT_LP / PRECISION;
-        uint256 amountLPTokenDevFund = amountArrayReturned - amountLPTokenDeposited;
+//        uint256 amountLPTokenDeposited = amountArrayReturned * DEV_PCT_LP / PRECISION;
+//        uint256 amountLPTokenDevFund = amountArrayReturned - amountLPTokenDeposited;
 
         // Only mint 95% of ARRAY total to account for 5% LP dev fund
-        uint256 amountArrayMinted = amountArrayReturned * (PRECISION - DEV_PCT_LP);
-        require(amountArrayMinted <= maxSupply, "buy: amountArrayMinted > max supply");
+//        uint256 amountArrayMinted = amountArrayReturned * (PRECISION - DEV_PCT_LP);
+//        require(amountArrayMinted <= maxSupply, "buy: amountArrayMinted > max supply");
 
         // 20% of total ARRAY sent to Array team vesting
-        uint256 amountArrayDevFund = amountArrayMinted * DEV_PCT_ARRAY / PRECISION;
+//        uint256 amountArrayDevFund = amountArrayMinted * DEV_PCT_ARRAY / PRECISION;
 
         // 5% of total ARRAY sent to DAO multisig
-        uint256 amountArrayDao = amountArrayMinted * DAO_PCT_ARRAY / PRECISION;
-
+//        uint256 amountArrayDao = amountArrayMinted * DAO_PCT_ARRAY / PRECISION;
         // Remaining ARRAY goes to buyer
-        uint256 amountArrayBuyer = amountArrayMinted - amountArrayDevFund - amountArrayDao;
+
+//        uint256 amountArrayBuyer = amountArrayMinted - amountArrayDevFund - amountArrayDao;
 
         // Deposit assets into smartpool (TODO: validate)
         SP_TOKEN.joinswapExternAmountIn(token, amount, 0);
         
         // Mint devFund's ARRAY to this contract for holding
-        ARRAY.mint(address(this), amountArrayDevFund);
+//        ARRAY.mint(address(this), amountArrayDevFund);
 
         // Mint buyer's ARRAY to buyer
-        ARRAY.mint(msg.sender, amountArrayBuyer);
+//        ARRAY.mint(msg.sender, amountArrayBuyer);
 
         // Update balances (TODO?)
-        devFundLPBalance = devFundLPBalance + amountLPTokenDevFund;
-        devFundArrayBalance = devFundArrayBalance + amountArrayDevFund;
-        daoArrayBalance = daoArrayBalance + amountArrayDao;
+//        devFundLPBalance = devFundLPBalance + amountLPTokenDevFund;
+//        devFundArrayBalance = devFundArrayBalance + amountArrayDevFund;
+//        daoArrayBalance = daoArrayBalance + amountArrayDao;
 
         // Update virtual balance and supply
-        virtualBalance = virtualBalance + amountLPTokenDeposited;
-        virtualSupply = virtualSupply + amountArrayMinted;
+//        virtualBalance = virtualBalance + amountLPTokenDeposited;
+//        virtualSupply = virtualSupply + amountArrayMinted;
     }
 
 
@@ -347,7 +346,7 @@ contract Curve is ReentrancyGuard {
         if (max) {amountArray = ARRAY.balanceOf(msg.sender);}
         require(ARRAY.balanceOf(msg.sender) <= amountArray, "Cannot burn more than amount");
 
-        // get curve contract balance of LPtoken
+        // get _curve contract balance of LPtoken
         uint256 curveLPTokenBalance = SP_TOKEN.balanceOf(address(this));
 
         // get total supply of array token, subtract amount burned
@@ -418,45 +417,43 @@ contract Curve is ReentrancyGuard {
             amountLPTokenTotal
         );
 
-        // Multiply by M to get tokens returned
-        amountArrayToMintNormalized = amountArrayToMint * m / PRECISION;
     }
 
 
 
-    function isTokenInVirtualLP(address token) external view returns (bool) {
-        for (uint i=0; i<=virtualLPTokens.length; i++) {
-            if (token == virtualLPTokens[i]) {
-                return true;
-            }
-        }
-        return false;
-    }
+//    function isTokenInVirtualLP(address token) external view returns (bool) {
+//        for (uint i=0; i<=virtualLPTokens.length; i++) {
+//            if (token == virtualLPTokens[i]) {
+//                return true;
+//            }
+//        }
+//        return false;
+//    }
 
-    function getTokenIndexInVirtualLP(address token) external view returns (uint256) {
-        require(this.isTokenInVirtualLP(token), "Token not in virtual LP");
-        for (uint i=0; i<=virtualLPTokens.length; i++) {
-            if (token == virtualLPTokens[i]) {
-                return i;
-            }
-        }
-    }
+//    function getTokenIndexInVirtualLP(address token) external view returns (uint256) {
+//        require(this.isTokenInVirtualLP(token), "Token not in virtual LP");
+//        for (uint i=0; i<=virtualLPTokens.length; i++) {
+//            if (token == virtualLPTokens[i]) {
+//                return i;
+//            }
+//        }
+//    }
 
-    function addTokenToVirtualLP(address token) public {
-        require(msg.sender == gov, "msg.sender != gov");
-        require(this.isTokenInLP(token), "Token not in Balancer LP");
-        require(!this.isTokenInVirtualLP(token), "Token already added to virtual LP");
-
-        virtualLPTokens.push(token);
+//    function addTokenToVirtualLP(address token) public {
+//        require(msg.sender == gov, "msg.sender != gov");
+//        require(this.isTokenInLP(token), "Token not in Balancer LP");
+//        require(!this.isTokenInVirtualLP(token), "Token already added to virtual LP");
+//
+//        virtualLPTokens.push(token);
 //        emit addTokenToVirtualLP(token); // TODO
-    }
+//    }
 
-    function removeTokenFromVirtualLP(address token) public {
-        require(msg.sender == gov, "msg.sender != gov");
-        uint256 tokenIndex = this.getTokenIndexInVirtualLP(token);
-        
-        delete virtualLPTokens[tokenIndex];
+//    function removeTokenFromVirtualLP(address token) public {
+//        require(msg.sender == gov, "msg.sender != gov");
+//        uint256 tokenIndex = this.getTokenIndexInVirtualLP(token);
+//
+//        delete virtualLPTokens[tokenIndex];
 
  //       emit removeTokenFromVirtualLP(token); // TODO
     }
-}
+//}
