@@ -1,20 +1,34 @@
 from brownie import *
 from dotmap import DotMap
 from rich.console import Console
+from brownie.project.ArrayContractsProject import interface
 
-POOL_VALUE = 7  # in hundred thousand
-POOL_TOKENS = 333  # in k
+POOL_VALUE = 700_000  # in dai
+POOL_TOKENS = 333_333
+
+dai = interface.ERC20( '0x6b175474e89094c44da98b954eedeac495271d0f' )
+usdc = interface.ERC20( '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' )
+wbtc = interface.ERC20( '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599' )
+renbtc = interface.ERC20( '0xEB4C2781e4ebA804CE9a9803C67d0893436bB27D' )
+weth = interface.weth9( '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' )
+
+dm = DotMap()
+
+
+def get_prices_in_eth(contract):
+    token0 = interface.ERC20( contract.token0() )
+    token1 = interface.ERC20( contract.token1() )
+    r = contract.getReserves()
+    d = [token0.decimals(), token1.decimals()]
+    # check that the token we divide by is eth
+    if token0.symbol().lower() == 'weth':
+        i, j = 1, 0
+    else:
+        i, j = 0, 1
+    return (r[i] / 10 ** d[i]) / (r[j] / 10 ** d[j])
 
 
 def main():
-    console = Console()
-
-    dai = interface.ERC20( '0x6b175474e89094c44da98b954eedeac495271d0f' )
-    usdc = interface.ERC20( '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' )
-    wbtc = interface.ERC20( '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599' )
-    renbtc = interface.ERC20( '0xEB4C2781e4ebA804CE9a9803C67d0893436bB27D' )
-    weth = interface.weth9( '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' )
-
     p = DotMap()
     p.renbtc = interface.pair( '0x81fbef4704776cc5bba0a5df3a90056d2c6900b3' )
     p.wbtc = interface.pair( '0xBb2b8038a1640196FbE3e38816F3e67Cba72D940' )
@@ -23,21 +37,9 @@ def main():
 
     q = DotMap()
     for k, v in p.items():
-        token0 = interface.ERC20( v.token0() )
-        token1 = interface.ERC20( v.token1() )
-        r = v.getReserves()
-        d = [token0.decimals(), token1.decimals()]
-        # check that the token we divide by is eth
-        if token0.symbol().lower() == 'weth':
-            i, j = 1, 0
-        else:
-            i, j = 0, 1
-        result = (r[i] / 10 ** d[i]) / (r[j] / 10 ** d[j])
-        q[k] = result
+        q[k] = get_prices_in_eth( v )
 
-    dm = DotMap()
-
-    a = POOL_VALUE * 1e5 / 1.6999992549442997
+    a = POOL_VALUE
 
     dm.contracts.weth = weth
     dm.contracts.wbtc = wbtc
@@ -75,67 +77,46 @@ def main():
     usdc.transfer( someguy, 1e14, {'from': whale.usdc} )
     renbtc.transfer( someguy, 1e11, {'from': whale.renbtc} )
     wbtc.transfer( someguy, 1e11, {'from': whale.wbtc} )
-    accounts[3].transfer( someguy, amount=100e18 )
-    accounts[4].transfer( someguy, amount=100e18 )
-    accounts[5].transfer( someguy, amount=100e18 )
-    accounts[6].transfer( someguy, amount=100e18 )
-    accounts[7].transfer( someguy, amount=100e18 )
-    accounts[8].transfer( someguy, amount=100e18 )
+    for i in range( 3, 9, 1 ):
+        accounts[i].transfer( someguy, amount=100e18 )
     weth.deposit( {'from': someguy, 'value': 700e18} )
 
     tokens = [_.address for _ in dm.contracts.values()]
     balances = [_ for _ in dm.balances.values()]
     weights = [_ * 1e19 for _ in dm.weights.values()]
-    PoolParams = ['ARRAYLP', 'Array LP', tokens, balances, weights, 1e14]
-    PoolRights = [True, True, True, True, False, True]
+    pool_params = ['ARRAYLP', 'Array LP', tokens, balances, weights, 1e14]
+    pool_rights = [True, True, True, True, False, True]
     crpfact = interface.fact( '0xed52D8E202401645eDAD1c0AA21e872498ce47D0' )
-    tx = crpfact.newCrp( '0x9424B1412450D0f8Fc2255FAf6046b98213B76Bd', PoolParams, PoolRights )
-    poolcontract = interface.pool( tx.return_value )
-
+    tx = crpfact.newCrp( '0x9424B1412450D0f8Fc2255FAf6046b98213B76Bd', pool_params, pool_rights )
+    spool = interface.pool( tx.return_value )
     for _ in dm.contracts.values():
-        _.approve( poolcontract.address, 2 ** 256 - 1 )
+        _.approve( spool.address, 2 ** 256 - 1 )
 
-    poolcontract.createPool( POOL_TOKENS * 1e20 )
-    poolcontract.setCap( 1e28 )
+    spool.createPool( POOL_TOKENS * 1e18 )
+    spool.setCap( 1e28 )
 
-    bpool = interface.bpool( poolcontract.bPool() )
-
-    while True:
-
-        # try:
-        adjust_pool( poolcontract, usdc, dai, weth, wbtc, renbtc, dm )
-        # except Exception:
-        #     continue
-        # else:
-        value = calc_bal( poolcontract, bpool, console, usdc, dai, weth, wbtc, renbtc, dm )
-        value = value / 1e23
-        # finally:
-        if round( value, 4 ) == POOL_VALUE:
-            console.print( f'\nPool value: {value * 10 ** 5} DAI' )
-            console.print( f'Pool tokens: {poolcontract.totalSupply() / 1e18} ' )
-            break
-        else:
-            continue
-
-    return poolcontract
+    return spool
 
 
-def adjust_pool(poolcontract, usdc, dai, weth, wbtc, renbtc, dm):
-    for i in range( 0, 3 ):
-        poolcontract.joinswapExternAmountIn( usdc.address, dm.balances.usdc / 10, 0, {'from': accounts[2]} )
-        poolcontract.joinswapExternAmountIn( dai.address, dm.balances.dai / 10, 0, {'from': accounts[2]} )
-        poolcontract.joinswapExternAmountIn( weth.address, dm.balances.weth / 10, 0, {'from': accounts[2]} )
-        poolcontract.joinswapExternAmountIn( wbtc.address, dm.balances.wbtc / 10, 0, {'from': accounts[2]} )
-        poolcontract.joinswapExternAmountIn( renbtc.address, dm.balances.renbtc / 10, 0, {'from': accounts[2]} )
+def get_bpool(spool):
+    return interface.bpool( spool.bPool() )
 
 
-def calc_bal(poolcontract, bpool, console, usdc, dai, weth, wbtc, renbtc, dm):
-    a = bpool.getBalance( weth ) * dm.prices.weth
-    b = bpool.getBalance( wbtc ) * dm.prices.wbtc
-    c = bpool.getBalance( renbtc ) * dm.prices.renbtc
-    d = bpool.getBalance( dai ) * dm.prices.dai
-    e = bpool.getBalance( usdc ) * dm.prices.usdc
+def adjust_pool_in(spool, factor):
+    m = 2 ** 256 - 1
+    spool.joinPool( factor, [m, m, m, m, m] )
 
-    totaleth = a + b + c + d + e
-    total_dai = totaleth * dm.prices.dai
-    return total_dai
+
+def adjust_pool_out(spool, factor):
+    m = 0
+    spool.exitPool( factor, [m, m, m, m, m] )
+
+
+def calc_bal(bpool, dm):
+    a = bpool.getBalance( weth ) / (dm.prices.weth * 1e18)
+    b = bpool.getBalance( wbtc ) / (dm.prices.wbtc * 1e8)
+    c = bpool.getBalance( renbtc ) / (dm.prices.renbtc * 1e8)
+    d = bpool.getBalance( dai ) / (dm.prices.dai * 1e18)
+    e = bpool.getBalance( usdc ) / (dm.prices.usdc * 1e6)
+
+    return (a + b + c + d + e) * 1e18

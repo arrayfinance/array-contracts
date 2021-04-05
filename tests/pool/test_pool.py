@@ -1,5 +1,6 @@
 import pytest
 
+
 @pytest.fixture( scope='module', autouse=True )
 def dai(interface):
     yield interface.ERC20( '0x6b175474e89094c44da98b954eedeac495271d0f' )
@@ -55,3 +56,15 @@ def test_pool_in(someguy, accounts, pool, dai):
     tx = pool.joinswapExternAmountIn( dai.address, 100 * 1e18, 0 )
     after = pool.balanceOf( someguy )
     assert tx.return_value == after - before
+
+
+def test_pool_supply(pool):
+    ts = round( pool.totalSupply() / 1e23, 2 )
+    assert ts == 3.33
+
+
+def test_pool_value(pool):
+    from scripts.create_smartpool import get_bpool, calc_bal, dm
+    bp = get_bpool( pool )
+    value = round( calc_bal( bp, dm ) / 1e23, 2 )
+    assert value == 7.00
