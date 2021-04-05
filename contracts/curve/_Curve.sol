@@ -219,6 +219,7 @@ contract Curve is ReentrancyGuard {
 
     I_ERC20 public DAI = I_ERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     I_ERC20 public ARRAY;
+    I_BondingCurve public CURVE;
     I_SmartPool public SP_TOKEN;
 
 //    mapping(address => uint256) public deposits;
@@ -255,8 +256,8 @@ contract Curve is ReentrancyGuard {
         require(msg.sender == owner, "!owner");
 
         // Send LP tokens from governance to curve
+        require(SP_TOKEN.transferFrom(owner, address(this), initialAmountLPToken), "Transfer failed");
         initialAmountLPToken = SP_TOKEN.balanceOf(address(this));
-        require(SP_TOKEN.transferFrom(gov, address(this), initialAmountLPToken), "Transfer failed");
 
         // Mint ARRAY to CCO
         ARRAY.mint(DAO_MULTISIG_ADDR, STARTING_ARRAY_MINTED);
@@ -372,34 +373,34 @@ contract Curve is ReentrancyGuard {
     }
 
 
-    function withdrawDevFunds(address token, uint256 amount, bool max) external returns (bool) {
-        bool success = false;
-
-        require(msg.sender == DEV_MULTISIG_ADDR, "withdrawDevFunds: msg.sender != DEV_MULTISIG_ADDR");
-
-
-        if (token == address(ARRAY)) {
-            require(amount <= devFundArrayBalance);
-            if (max) {amount = devFundArrayBalance;}
-//            require(ARRAY.mint(VESTING_MULTISIG_ADDR, amount)); // @TODO this doesn't return a bool.
-            devFundArrayBalance = devFundArrayBalance - amount;
-            success = true;
-
-        } else {
-
-            require(amount <= devFundLPBalance);
-            if (max) {amount = devFundLPBalance;}
-            require(DAI.transfer(DEV_MULTISIG_ADDR, amount));
-            devFundLPBalance = devFundLPBalance - amount;
-            success = true;
-        }
-
-        emit WithdrawDevFunds(token, amount);
-        emit WithdrawDaoFunds(amount);
-
-        return success;
-
-    }
+//    function withdrawDevFunds(address token, uint256 amount, bool max) external returns (bool) {
+//        bool success = false;
+//
+//        require(msg.sender == DEV_MULTISIG_ADDR, "withdrawDevFunds: msg.sender != DEV_MULTISIG_ADDR");
+//
+//
+//        if (token == address(ARRAY)) {
+//            require(amount <= devFundArrayBalance);
+//            if (max) {amount = devFundArrayBalance;}
+////            require(ARRAY.mint(VESTING_MULTISIG_ADDR, amount)); // @TODO this doesn't return a bool.
+//            devFundArrayBalance = devFundArrayBalance - amount;
+//            success = true;
+//
+//        } else {
+//
+//            require(amount <= devFundLPBalance);
+//            if (max) {amount = devFundLPBalance;}
+//            require(DAI.transfer(DEV_MULTISIG_ADDR, amount));
+//            devFundLPBalance = devFundLPBalance - amount;
+//            success = true;
+//        }
+//
+//        emit WithdrawDevFunds(token, amount);
+//        emit WithdrawDaoFunds(amount);
+//
+//        return success;
+//
+//    }
 
 
     function calculateArrayGivenTokenAndAmount(
@@ -415,7 +416,10 @@ contract Curve is ReentrancyGuard {
             virtualBalance,
             reserveRatio,
             amountLPTokenTotal
+
         );
+
+        return amountArrayToMint;
 
     }
 
