@@ -175,7 +175,7 @@ contract Curve is ReentrancyGuard {
 //    uint256 private DAO_PCT_ARRAY = 5 * 10**16;  // 5%
     uint256 private PRECISION = 10**18;
 //
-//    uint256 public m = 10**12;  // 1/1,000,000 (used for y = mx in _curve)
+//    uint256 public m = 10**12;  // 1/1,000,000 (used for y = mx in curve)
 
     uint256 public MAX_ARRAY_SUPPLY = 100000 * PRECISION;
 
@@ -188,7 +188,7 @@ contract Curve is ReentrancyGuard {
     // Keeps track of LP tokens
     uint256 public virtualBalance;
 
-    // Keeps track of ARRAY minted for bonding _curve
+    // Keeps track of ARRAY minted for bonding curve
     uint256 public virtualSupply;
 
     // Keeps track of the max amount of ARRAY supply
@@ -204,7 +204,7 @@ contract Curve is ReentrancyGuard {
     // Keeps track of ARRAY for DAO multisig
 //    uint256 public daoArrayBalance;
 
-    // Used to calculate bonding _curve slope
+    // Used to calculate bonding curve slope
     // Returns same result as x^2
     uint32 public reserveRatio = 333333; // symbolizes 1/3, based on bancor's max of 1/1,000,000
 
@@ -254,7 +254,7 @@ contract Curve is ReentrancyGuard {
         require(!initialized, "intialized");
         require(msg.sender == owner, "!owner");
 
-        // Send LP tokens from governance to _curve
+        // Send LP tokens from governance to curve
         initialAmountLPToken = SP_TOKEN.balanceOf(address(this));
         require(SP_TOKEN.transferFrom(gov, address(this), initialAmountLPToken), "Transfer failed");
 
@@ -346,7 +346,7 @@ contract Curve is ReentrancyGuard {
         if (max) {amountArray = ARRAY.balanceOf(msg.sender);}
         require(ARRAY.balanceOf(msg.sender) <= amountArray, "Cannot burn more than amount");
 
-        // get _curve contract balance of LPtoken
+        // get curve contract balance of LPtoken
         uint256 curveLPTokenBalance = SP_TOKEN.balanceOf(address(this));
 
         // get total supply of array token, subtract amount burned
