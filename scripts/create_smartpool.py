@@ -6,6 +6,8 @@ from brownie.project.ArrayContractsProject import interface
 POOL_VALUE = 700_000  # in dai
 POOL_TOKENS = 333_333
 
+token_symbols = ['dai', 'usdc', 'wbtc', 'renbtc', 'weth']
+
 dai = interface.ERC20( '0x6b175474e89094c44da98b954eedeac495271d0f' )
 usdc = interface.ERC20( '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' )
 wbtc = interface.ERC20( '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599' )
@@ -102,14 +104,42 @@ def get_bpool(spool):
     return interface.bpool( spool.bPool() )
 
 
-def adjust_pool_in(spool, factor):
+def pool_in(spool, factor):
     m = 2 ** 256 - 1
     spool.joinPool( factor, [m, m, m, m, m] )
 
 
-def adjust_pool_out(spool, factor):
+def pool_out(spool, factor):
     m = 0
     spool.exitPool( factor, [m, m, m, m, m] )
+
+
+def dai_pool_add(spool, dm, a):
+    balances = DotMap()
+    balances.weth = dm.weights.weth * dm.prices.weth * 1e18 * a
+    balances.wbtc = dm.weights.wbtc * dm.prices.wbtc * 1e8 * a
+    balances.renbtc = dm.weights.renbtc * dm.prices.renbtc * 1e8 * a
+    balances.dai = dm.weights.dai * dm.prices.dai * 1e18 * a
+    balances.usdc = dm.weights.usdc * dm.prices.usdc * 1e6 * a
+
+    for k, v in balances.items():
+        spool.joinswapExternAmountIn( dm.contracts[k], v, 0 )
+
+    return calc_bal( get_bpool( spool ), dm )
+
+
+def dai_pool_remove(spool, dm, a):
+    balances = DotMap()
+    balances.weth = dm.weights.weth * dm.prices.weth * 1e18 * a
+    balances.wbtc = dm.weights.wbtc * dm.prices.wbtc * 1e8 * a
+    balances.renbtc = dm.weights.renbtc * dm.prices.renbtc * 1e8 * a
+    balances.dai = dm.weights.dai * dm.prices.dai * 1e18 * a
+    balances.usdc = dm.weights.usdc * dm.prices.usdc * 1e6 * a
+
+    for k, v in balances.items():
+        spool.exitswapExternAmountOut( dm.contracts[k], v, 2 ** 256 - 1 )
+
+    return calc_bal( get_bpool( spool ), dm )
 
 
 def calc_bal(bpool, dm):
