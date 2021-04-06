@@ -6,7 +6,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 interface I_ERC20 {
-    function mint(address _to, uint256 amount) external;
+    function mint(address _to, uint256 amount) external; //returns (bool success) <- add to base erc-20 contract or something idk im not a programmer
     function burn(address _from, uint256 amount) external;
     function transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
     function transfer(address _to, uint256 _value) external returns (bool success);
@@ -410,7 +410,7 @@ contract Curve is ReentrancyGuard {
         // Calculate amount of smartpool LP tokens returned
         uint256 amountLPTokenTotal = SP_TOKEN.joinswapExternAmountIn(token, amount, 0);
 
-        // Calculate quantity of ARRAY minted based on total LP tokens (Does not account for M)
+        // Calculate quantity of ARRAY minted based on total LP tokens
         uint256 amountArrayToMint = CURVE.purchaseTargetAmount(
             virtualSupply,
             virtualBalance,
