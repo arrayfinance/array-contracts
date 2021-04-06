@@ -50,8 +50,9 @@ def test_lpin(someguy, accounts, pool, dai):
 
 
 # puts 100 DAI in and gets some pool tokens out
-def test_pool_in(someguy, accounts, pool, dai):
+def test_pool_in(someguy, accounts, pool, dai, whale):
     accounts.default = someguy
+    dai.transfer( someguy, 100 * 1e18, {'from': whale.dai} )
     before = pool.balanceOf( someguy )
     tx = pool.joinswapExternAmountIn( dai.address, 100 * 1e18, 0 )
     after = pool.balanceOf( someguy )
@@ -64,7 +65,7 @@ def test_pool_supply(pool):
 
 
 def test_pool_value(pool):
-    from scripts.create_smartpool import get_bpool, calc_bal, dm
+    from scripts.create_smartpool import get_bpool, calc_bal
     bp = get_bpool( pool )
-    value = round( calc_bal( bp, dm ) / 1e23, 2 )
+    value = round( calc_bal( bp )/1e5, 2 )
     assert value == 7.00
