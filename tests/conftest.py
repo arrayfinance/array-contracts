@@ -4,7 +4,7 @@ from brownie import ZERO_ADDRESS, Wei, Contract, interface
 
 
 @pytest.fixture( scope='module', autouse=True )
-def owner(accounts):
+def someguy(accounts):
     yield accounts[0]
 
 
@@ -14,7 +14,7 @@ def deployer(accounts):
 
 
 @pytest.fixture( scope='module', autouse=True )
-def someguy(accounts):
+def owner(accounts):
     yield accounts[2]
 
 

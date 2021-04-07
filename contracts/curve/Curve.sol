@@ -4,9 +4,14 @@ pragma solidity ^0.8.0;
 
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 interface I_ERC20 {
-    function mint(address _to, uint256 amount) external; //returns (bool success) <- add to base erc-20 contract or something idk im not a programmer
+
+    // on second thought, let's not change the ERC20 standard contract, i looked this up a bit and people get upset
+    // when you do (ie other contracts expect the ERC20 contract to behave like it's been defined.
+
+    function mint(address _to, uint256 amount) external;
     function burn(address _from, uint256 amount) external;
     function transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
     function transfer(address _to, uint256 _value) external returns (bool success);
@@ -163,9 +168,9 @@ interface I_SmartPool{
 
 }
 
-contract Curve is ReentrancyGuard {
+contract Curve is ReentrancyGuard, Initializable {
 
-//    address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
+    address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
 //    address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;
 //    address public VESTING_MULTISIG_ADDR = address(0);  // TODO
 //    address public HARVEST_MULTISIG_ADDR = address(0); // TODO
@@ -175,7 +180,7 @@ contract Curve is ReentrancyGuard {
 //    uint256 private DAO_PCT_ARRAY = 5 * 10**16;  // 5%
     uint256 private PRECISION = 10**18;
 //
-//    uint256 public m = 10**12;  // 1/1,000,000 (used for y = mx in curve)
+//    uint256 public m = 10**12;  // 1/1,000,000 (used for y = mx in bancor)
 
     uint256 public MAX_ARRAY_SUPPLY = 100000 * PRECISION;
 
@@ -188,7 +193,7 @@ contract Curve is ReentrancyGuard {
     // Keeps track of LP tokens
     uint256 public virtualBalance;
 
-    // Keeps track of ARRAY minted for bonding curve
+    // Keeps track of ARRAY minted for bonding bancor
     uint256 public virtualSupply;
 
     // Keeps track of the max amount of ARRAY supply
@@ -204,7 +209,7 @@ contract Curve is ReentrancyGuard {
     // Keeps track of ARRAY for DAO multisig
 //    uint256 public daoArrayBalance;
 
-    // Used to calculate bonding curve slope
+    // Used to calculate bonding bancor slope
     // Returns same result as x^2
     uint32 public reserveRatio = 333333; // symbolizes 1/3, based on bancor's max of 1/1,000,000
 
@@ -249,23 +254,17 @@ contract Curve is ReentrancyGuard {
         SP_TOKEN = I_SmartPool(_smartPool);
     }
 
-    function initialize(address to) public {
-        uint256 initialAmountLPToken;
-
-        require(!initialized, "intialized");
+    function initialize(uint256 initialAmountLPToken) public initializer {
         require(msg.sender == owner, "!owner");
 
-        // Send LP tokens from governance to curve
+        // Send LP tokens from governance to bancor
         require(SP_TOKEN.transferFrom(owner, address(this), initialAmountLPToken), "Transfer failed");
-        initialAmountLPToken = SP_TOKEN.balanceOf(address(this));
 
         // Mint ARRAY to CCO
         ARRAY.mint(DAO_MULTISIG_ADDR, STARTING_ARRAY_MINTED);
         
-        // Set virtual balance and supply
         virtualBalance = initialAmountLPToken;
         virtualSupply = STARTING_ARRAY_MINTED;
-        initialized = true;
     }
 
 //    function isTokenInLP(address token) external view returns (bool) {
@@ -347,7 +346,7 @@ contract Curve is ReentrancyGuard {
         if (max) {amountArray = ARRAY.balanceOf(msg.sender);}
         require(ARRAY.balanceOf(msg.sender) <= amountArray, "Cannot burn more than amount");
 
-        // get curve contract balance of LPtoken
+        // get bancor contract balance of LPtoken
         uint256 curveLPTokenBalance = SP_TOKEN.balanceOf(address(this));
 
         // get total supply of array token, subtract amount burned
@@ -411,6 +410,7 @@ contract Curve is ReentrancyGuard {
         uint256 amountLPTokenTotal = SP_TOKEN.joinswapExternAmountIn(token, amount, 0);
 
         // Calculate quantity of ARRAY minted based on total LP tokens
+        // virtualSupply =
         uint256 amountArrayToMint = CURVE.purchaseTargetAmount(
             virtualSupply,
             virtualBalance,
