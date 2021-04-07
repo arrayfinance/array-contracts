@@ -8,7 +8,7 @@ if len( project.get_loaded_projects() ) == 0:
     from brownie.project.ArrayContractsProject import interface
 
 POOL_VALUE = 700_000  # in dai
-POOL_TOKENS = 333_333
+POOL_TOKENS = 333333333333333333333333
 
 token = ['dai', 'usdc', 'wbtc', 'renbtc', 'weth']
 
@@ -85,7 +85,7 @@ def create_map():
 def main():
     d = create_map()
 
-    someguy = accounts.default = accounts[2]
+    someguy = accounts.default = accounts[0]
 
     for k in token:
         d[k].contract.transfer( someguy, d[k].balance, {'from': d[k].whale} )
@@ -102,7 +102,7 @@ def main():
     for k in token:
         d[k].contract.approve( spool.address, 2 ** 256 - 1 )
 
-    spool.createPool( POOL_TOKENS * 1e18 )
+    spool.createPool( POOL_TOKENS )
     spool.setCap( 1e28 )
 
     return spool
@@ -136,7 +136,7 @@ def dai_pool_remove(spool, a):
     d = create_map()
 
     for k in token:
-        b = d[k].weight * d[k].price * d[k].dai_price * d[k].decimals * a
+        b = d[k].weight * d[k].dai_price * d[k].decimals * a
         spool.exitswapExternAmountOut( d[k].contract.address, b, 2 ** 256 - 1 )
 
     return calc_bal( get_bpool( spool ) )
