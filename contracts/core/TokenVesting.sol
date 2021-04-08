@@ -18,7 +18,7 @@ contract TokenVesting is Ownable {
     uint256 public duration;
     uint256 public released;
 
-    constructor (uint256 _start, uint256 _duration, uint256 _cliffDuration) public {
+    constructor (uint256 _start, uint256 _duration, uint256 _cliffDuration) {
         require(_cliffDuration <= _duration, "TokenVesting: cliff is longer than duration");
         require(_duration > 0, "TokenVesting: duration is 0");
         require(_start + _duration > block.timestamp, "TokenVesting: final time is before current time");

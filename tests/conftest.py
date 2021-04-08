@@ -1,54 +1,40 @@
 import pytest
 from dotmap import DotMap
-from brownie import ZERO_ADDRESS, Wei, Contract, interface
 
 
-@pytest.fixture( scope='module', autouse=True )
-def someguy(accounts):
+@pytest.fixture( scope="module", autouse=True )
+def deployer(accounts):
     yield accounts[0]
 
 
 @pytest.fixture( scope='module', autouse=True )
-def deployer(accounts):
+def someguy(accounts):
     yield accounts[1]
 
 
 @pytest.fixture( scope='module', autouse=True )
-def owner(accounts):
-    yield accounts[2]
+def dai(interface):
+    yield interface.ERC20( '0x6b175474e89094c44da98b954eedeac495271d0f' )
 
 
 @pytest.fixture( scope='module', autouse=True )
-def af(ArrayFactory, owner):
-    yield owner.deploy( ArrayFactory )
+def usdc(interface):
+    yield interface.ERC20( '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' )
 
 
 @pytest.fixture( scope='module', autouse=True )
-def apa(ArrayProxyAdmin, owner):
-    yield owner.deploy( ArrayProxyAdmin )
+def wbtc(interface):
+    yield interface.ERC20( '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599' )
 
 
 @pytest.fixture( scope='module', autouse=True )
-def vault(ArrayVault, someguy):
-    yield someguy.deploy( ArrayVault )
+def renbtc(interface):
+    yield interface.ERC20( '0xEB4C2781e4ebA804CE9a9803C67d0893436bB27D' )
 
 
 @pytest.fixture( scope='module', autouse=True )
-def vault_two(ArrayVault, someguy):
-    yield someguy.deploy( ArrayVault )
-
-
-@pytest.fixture( scope='module', autouse=True )
-def apat(ArrayProxyAdminTimelock, owner, someguy, apa):
-    apat = owner.deploy( ArrayProxyAdminTimelock, 6400, [owner], [owner, someguy, ZERO_ADDRESS] )
-    apa.transferOwnership( apat.address, {'from': owner} )
-    yield apat
-
-
-@pytest.fixture( scope='module', autouse=True )
-def ini(vault, owner):
-    data = vault.initialize.encode_input( owner.address )
-    yield data
+def weth(interface):
+    yield interface.weth9( '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' )
 
 
 @pytest.fixture( scope='module', autouse=True )
