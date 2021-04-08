@@ -2,72 +2,61 @@
 
 pragma solidity ^0.8.0;
 
-
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 interface I_ERC20 {
 
-    // on second thought, let's not change the ERC20 standard contract, i looked this up a bit and people get upset
-    // when you do (ie other contracts expect the ERC20 contract to behave like it's been defined.
-
     function mint(address _to, uint256 amount) external;
+
     function burn(address _from, uint256 amount) external;
+
     function transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
+
     function transfer(address _to, uint256 _value) external returns (bool success);
+
     function balanceOf(address _owner) external view returns (uint256 balance);
+
+    function allowance(address _owner, address _spender) external view returns (uint256 amount);
+
+    function approve(address _spender, uint256 _value) external returns (bool success);
 }
 
-interface I_BondingCurve {
-    function purchaseTargetAmount(uint256 _supply, uint256 _reserveBalance, uint32 _reserveWeight, uint256 _amount)
+interface I_BancorFormula {
+    function calculatePurchaseReturn(uint256 _supply, uint256 _reserveBalance, uint32 _reserveWeight, uint256 _amount)
     external view returns (uint256);
 }
 
-interface I_SmartPool{
+interface I_CRP {
+    function mintPoolShareFromLib(uint amount) external;
 
-    function isPublicSwap() external view returns (bool);
-    function isFinalized() external view returns (bool);
-    function isBound(address t) external view returns (bool);
-    function getNumTokens() external view returns (uint);
-    function getCurrentTokens() external view returns (address[] memory tokens);
-    function getFinalTokens() external view returns (address[] memory tokens);
-    function getDenormalizedWeight(address token) external view returns (uint);
-    function getTotalDenormalizedWeight() external view returns (uint);
-    function getNormalizedWeight(address token) external view returns (uint);
-    function getBalance(address token) external view returns (uint);
-    function getSwapFee() external view returns (uint);
+    function pushPoolShareFromLib(address to, uint amount) external;
+
+    function pullPoolShareFromLib(address from, uint amount) external;
+
+    function burnPoolShareFromLib(uint amount) external;
+
+    function totalSupply() external view returns (uint);
+
     function getController() external view returns (address);
 
-    function setSwapFee(uint swapFee) external;
-    function setController(address manager) external;
-    function setPublicSwap(bool public_) external;
-    function finalize() external;
-    function bind(address token, uint balance, uint denorm) external;
-    function rebind(address token, uint balance, uint denorm) external;
-    function unbind(address token) external;
-    function gulp(address token) external;
+    function transfer(address dst, uint amt) external returns (bool);
 
-    function getSpotPrice(address tokenIn, address tokenOut) external view returns (uint spotPrice);
-    function getSpotPriceSansFee(address tokenIn, address tokenOut) external view returns (uint spotPrice);
+    function transferFrom(
+        address src, address dst, uint amt
+    ) external returns (bool);
+
+    function balanceOf(address whom) external view returns (uint);
+
+    function allowance(address src, address dst) external view returns (uint);
+
+    function approve(address dst, uint amt) external returns (bool);
 
     function joinPool(uint poolAmountOut, uint[] calldata maxAmountsIn) external;
+
     function exitPool(uint poolAmountIn, uint[] calldata minAmountsOut) external;
 
-    function swapExactAmountIn(
-        address tokenIn,
-        uint tokenAmountIn,
-        address tokenOut,
-        uint minAmountOut,
-        uint maxPrice
-    ) external returns (uint tokenAmountOut, uint spotPriceAfter);
-
-    function swapExactAmountOut(
-        address tokenIn,
-        uint maxAmountIn,
-        address tokenOut,
-        uint tokenAmountOut,
-        uint maxPrice
-    ) external returns (uint tokenAmountIn, uint spotPriceAfter);
+    function bPool() external view returns (address);
 
     function joinswapExternAmountIn(
         address tokenIn,
@@ -92,43 +81,28 @@ interface I_SmartPool{
         uint tokenAmountOut,
         uint maxPoolAmountIn
     ) external returns (uint poolAmountIn);
+}
 
-    function totalSupply() external view returns (uint);
-    function balanceOf(address whom) external view returns (uint);
-    function allowance(address src, address dst) external view returns (uint);
+interface I_BPool {
 
-    function approve(address dst, uint amt) external returns (bool);
-    function transfer(address dst, uint amt) external returns (bool);
-    function transferFrom(
-        address src, address dst, uint amt
-    ) external returns (bool);
+    function getNumTokens() external view returns (uint);
+    function getCurrentTokens() external view returns (address[] memory tokens);
+    function getDenormalizedWeight(address token) external view returns (uint);
 
-    function calcSpotPrice(
-        uint tokenBalanceIn,
-        uint tokenWeightIn,
-        uint tokenBalanceOut,
-        uint tokenWeightOut,
-        uint swapFee
-    ) external pure returns (uint spotPrice);
+    function getTotalDenormalizedWeight() external view returns (uint);
 
-    function calcOutGivenIn(
-        uint tokenBalanceIn,
-        uint tokenWeightIn,
-        uint tokenBalanceOut,
-        uint tokenWeightOut,
-        uint tokenAmountIn,
-        uint swapFee
-    ) external pure returns (uint tokenAmountOut);
+    function getNormalizedWeight(address token) external view returns (uint);
 
-    function calcInGivenOut(
-        uint tokenBalanceIn,
-        uint tokenWeightIn,
-        uint tokenBalanceOut,
-        uint tokenWeightOut,
-        uint tokenAmountOut,
-        uint swapFee
-    ) external pure returns (uint tokenAmountIn);
+    function getBalance(address token) external view returns (uint);
 
+    function getSwapFee() external view returns (uint);
+
+    function getController() external view returns (address);
+
+    // @dev calculates how much pool token you'd get putting in a certain token, this token is defined by balance,
+    //      weight
+    //      tokenBalanceIn, tokenWeightIn, totalWeight, swapFee are from the bpool
+    //      poolSupply is from the spool
     function calcPoolOutGivenSingleIn(
         uint tokenBalanceIn,
         uint tokenWeightIn,
@@ -138,6 +112,10 @@ interface I_SmartPool{
         uint swapFee
     ) external pure returns (uint poolAmountOut);
 
+    // @dev calculates how much pool token you'd get putting in a certain token, this token is defined by balance,
+    //      weight
+    //      tokenBalanceIn, tokenWeightIn, totalWeight, swapFee are from the bpool
+    //      poolSupply is from the spool
     function calcSingleInGivenPoolOut(
         uint tokenBalanceIn,
         uint tokenWeightIn,
@@ -147,40 +125,22 @@ interface I_SmartPool{
         uint swapFee
     ) external pure returns (uint tokenAmountIn);
 
-
-    function calcSingleOutGivenPoolIn(
-        uint tokenBalanceOut,
-        uint tokenWeightOut,
-        uint poolSupply,
-        uint totalWeight,
-        uint poolAmountIn,
-        uint swapFee
-    ) external pure returns (uint tokenAmountOut);
-
-    function calcPoolInGivenSingleOut(
-        uint tokenBalanceOut,
-        uint tokenWeightOut,
-        uint poolSupply,
-        uint totalWeight,
-        uint tokenAmountOut,
-        uint swapFee
-    ) external pure returns (uint poolAmountIn);
-
 }
 
 contract Curve is ReentrancyGuard, Initializable {
 
     address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
-//    address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;
-//    address public VESTING_MULTISIG_ADDR = address(0);  // TODO
-//    address public HARVEST_MULTISIG_ADDR = address(0); // TODO
-//
-//    uint256 private DEV_PCT_LP = 5 * 10**16; // 5%
-//    uint256 private DEV_PCT_ARRAY = 2 * 10**17; // 20%
-//    uint256 private DAO_PCT_ARRAY = 5 * 10**16;  // 5%
-    uint256 private PRECISION = 10**18;
-//
-//    uint256 public m = 10**12;  // 1/1,000,000 (used for y = mx in bancor)
+    address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;
+    address public VESTING_MULTISIG_ADDR = address(0);  // TODO
+    address public HARVEST_MULTISIG_ADDR = address(0); // TODO
+
+    //
+    uint256 private DEV_PCT_TOKEN = 5 * 10 ** 16; // 5% to Dev Multisig as base asset  4/4/21
+    uint256 private DAO_PCT_ARRAY = 5 * 10 ** 16; // 5% to DAO multisig as base entered asset 4/4/21
+    uint256 private DAO_PCT_TOKEN = 20 * 10 ** 16;  //20% to DAO multisig as base entered asset 4/4/21
+    uint256 private PRECISION = 10 ** 18;
+
+    uint256 private MAX_SLIPPAGE = 2 * 10 ** 16;
 
     uint256 public MAX_ARRAY_SUPPLY = 100000 * PRECISION;
 
@@ -199,22 +159,18 @@ contract Curve is ReentrancyGuard, Initializable {
     // Keeps track of the max amount of ARRAY supply
     uint256 public maxSupply = 100000 * PRECISION;
 
-    // @TODO Why an array?? (GISMAR)
     // Keeps track of DAI for team multisig
-//    uint256 public devFundLPBalance;
+    uint256 public devFundLPBalance;
 
     // Keeps track of ARRAY for team multisig
-//    uint256 public devFundArrayBalance;
+    uint256 public devFundArrayBalance;
 
     // Keeps track of ARRAY for DAO multisig
-//    uint256 public daoArrayBalance;
+    uint256 public daoArrayBalance;
 
     // Used to calculate bonding bancor slope
     // Returns same result as x^2
     uint32 public reserveRatio = 333333; // symbolizes 1/3, based on bancor's max of 1/1,000,000
-
-    // Initial purchase of ARRAY from the CCO
-    bool private initialized;
 
     address public owner;
     address public devFund;
@@ -222,13 +178,10 @@ contract Curve is ReentrancyGuard, Initializable {
 
     address[] public virtualLPTokens;
 
-    I_ERC20 public DAI = I_ERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     I_ERC20 public ARRAY;
-    I_BondingCurve public CURVE;
-    I_SmartPool public SP_TOKEN;
-
-//    mapping(address => uint256) public deposits;
-//    mapping(address => uint256) public purchases;
+    I_BancorFormula public CURVE;
+    I_CRP public CRP;
+    I_BPool public BP;
 
     event Buy(
         address from,
@@ -244,114 +197,125 @@ contract Curve is ReentrancyGuard, Initializable {
 
     constructor(
         address _owner,
+        address _gov,
         address _arrayToken,
         address _curve,
         address _smartPool
     ) {
         owner = _owner;
+        gov = _gov;
         ARRAY = I_ERC20(_arrayToken);
-        CURVE = I_BondingCurve(_curve);
-        SP_TOKEN = I_SmartPool(_smartPool);
+        CURVE = I_BancorFormula(_curve);
+        CRP = I_CRP(_smartPool);
     }
 
     function initialize(uint256 initialAmountLPToken) public initializer {
         require(msg.sender == owner, "!owner");
 
-        // Send LP tokens from governance to bancor
-        require(SP_TOKEN.transferFrom(owner, address(this), initialAmountLPToken), "Transfer failed");
+        // @dev sets the balancer pool that's needed to get balances of individual tokens, etc..
+        BP = I_BPool(CRP.bPool());
+
+        // Send LP tokens from owner to balancer
+        require(CRP.transferFrom(owner, address(this), initialAmountLPToken), "Transfer failed");
 
         // Mint ARRAY to CCO
         ARRAY.mint(DAO_MULTISIG_ADDR, STARTING_ARRAY_MINTED);
-        
+
         virtualBalance = initialAmountLPToken;
         virtualSupply = STARTING_ARRAY_MINTED;
     }
 
-//    function isTokenInLP(address token) external view returns (bool) {
-//        address[] memory lpTokens = SP_TOKEN.getCurrentTokens();
-//        for (uint i=0; i <= lpTokens.length; i++) {
-//            if (token == lpTokens[i]) {
-//                return true;
-//            }
-//        }
-//        return false;
-//    }
-
 
     function buy(address token, uint256 amount) public nonReentrant {
-        require(initialized, "!initialized");
-//        require(this.isTokenInLP(token), "Token not in LP");
-//        require(this.isTokenInVirtualLP(token), "Token not greenlisted");
+        I_ERC20 _token = I_ERC20(token);
+
+        require(this.isTokenInLP(token), "Token not in LP");
+        require(this.isTokenInVirtualLP(token), "Token not greenlisted");
+        require(_token.allowance(msg.sender, address(this)) >= amount, "Not enough allowance");
         require(amount > 0, "buy: cannot deposit 0 tokens");
 
-        uint256 amountArrayReturned = calculateArrayGivenTokenAndAmount(token, amount);
+        require(_token.transferFrom(msg.sender, address(this), amount), 'transferFrom failed.');
+        require(_token.balanceOf(address(this)) >= amount, "Contract does not have enough token");
 
-//         @TODO (GISMAR)
-        // Only track 95% of LP deposited, as 5% goes to team
-//        uint256 amountLPTokenDeposited = amountArrayReturned * DEV_PCT_LP / PRECISION;
-//        uint256 amountLPTokenDevFund = amountArrayReturned - amountLPTokenDeposited;
+        // 20% goes to DAO MultiSig in original token
+        uint256 amountTokensForDAOMultiSig = amount * DAO_PCT_TOKEN / PRECISION;
+        require(_token.transfer(DAO_MULTISIG_ADDR, amountTokensForDAOMultiSig), "Transfer to DAO Multisig failed");
 
-        // Only mint 95% of ARRAY total to account for 5% LP dev fund
-//        uint256 amountArrayMinted = amountArrayReturned * (PRECISION - DEV_PCT_LP);
-//        require(amountArrayMinted <= maxSupply, "buy: amountArrayMinted > max supply");
+        // 5% goes to Dev MultiSig in original token
+        uint256 amountTokensForDEVMultiSig = amount * DAO_PCT_TOKEN / PRECISION;
+        require(_token.transfer(DEV_MULTISIG_ADDR, amountTokensForDEVMultiSig), "Transfer to DEV Multisig failed");
 
-        // 20% of total ARRAY sent to Array team vesting
-//        uint256 amountArrayDevFund = amountArrayMinted * DEV_PCT_ARRAY / PRECISION;
+        // what's left will be used to get LP tokens
+        uint256 amountTokensForLP = amount - amountTokensForDAOMultiSig - amountTokensForDEVMultiSig;
 
-        // 5% of total ARRAY sent to DAO multisig
-//        uint256 amountArrayDao = amountArrayMinted * DAO_PCT_ARRAY / PRECISION;
-        // Remaining ARRAY goes to buyer
+        require(_token.balanceOf(address(this)) >= amountTokensForLP, "Not enough tokens in Contract");
+        require(_token.approve(address(CRP), amountTokensForLP), 'approve failed');
 
-//        uint256 amountArrayBuyer = amountArrayMinted - amountArrayDevFund - amountArrayDao;
+        // calculate the estimated LP tokens that we'd get and then adjust for slippage to have minimum
+        uint256 maxLpTokenAmount = _calculateLPTokensGivenERC20Tokens(token, amountTokensForLP);
+        uint256 minLpTokenAmount = maxLpTokenAmount * MAX_SLIPPAGE / PRECISION;
 
-        // Deposit assets into smartpool (TODO: validate)
-        SP_TOKEN.joinswapExternAmountIn(token, amount, 0);
-        
-        // Mint devFund's ARRAY to this contract for holding
-//        ARRAY.mint(address(this), amountArrayDevFund);
+        // send the pool the left over tokens for LP, expecting minimum return
+        uint256 lpTokenAmount = CRP.joinswapExternAmountIn(address(_token), amountTokensForLP, minLpTokenAmount);
 
-        // Mint buyer's ARRAY to buyer
-//        ARRAY.mint(msg.sender, amountArrayBuyer);
+        // calculate how many array tokens correspond to the LP tokens that we got
+        uint256 amountArrayToMint = _calculateArrayGivenLPTokenAMount(lpTokenAmount);
+        require(amountArrayToMint <= maxSupply, "buy: amountArrayMinted > max supply");
 
-        // Update balances (TODO?)
-//        devFundLPBalance = devFundLPBalance + amountLPTokenDevFund;
-//        devFundArrayBalance = devFundArrayBalance + amountArrayDevFund;
-//        daoArrayBalance = daoArrayBalance + amountArrayDao;
+        // take off the cut for the multisig
+        uint256 amountArrayForDAOMultisig = amountArrayToMint * DAO_PCT_ARRAY / PRECISION;
+        ARRAY.mint(DAO_MULTISIG_ADDR, amountArrayForDAOMultisig);
 
-        // Update virtual balance and supply
-//        virtualBalance = virtualBalance + amountLPTokenDeposited;
-//        virtualSupply = virtualSupply + amountArrayMinted;
+        // rest goes to user
+        uint256 amountArrayForUser = amountArrayToMint - amountArrayForDAOMultisig;
+        ARRAY.mint(msg.sender, amountArrayForUser);
+
+        //        devFundLPBalance = devFundLPBalance + amountLPTokenDevFund;
+        //        devFundArrayBalance = devFundArrayBalance + amountArrayDevFund;
+        //        daoArrayBalance = daoArrayBalance + amountArrayDao;
+
+        // update virtual balance and supply
+        virtualBalance = virtualBalance + lpTokenAmount;
+        virtualSupply = virtualSupply + amountArrayToMint;
+
+        emit Buy(msg.sender, token, amount, lpTokenAmount, amountArrayForUser);
     }
 
 
 
-// @TODO What's this?
-//
-//    // TODO: make this callable only from harvest
-//    function withdrawDaoFunds(uint256 amount, bool max) external returns (bool) {
-//        require(
-//            msg.sender == DAO_MULTISIG_ADDR || msg.sender == HARVEST_MULTISIG_ADDR,
-//            "withdrawDaoFunds: msg.sender != DAO_MULTISIG_ADDR || HARVEST_ADDR"
-//        );
-//        if (max) {amount = daoArrayBalance;}
-//        require(ARRAY.transfer(DAO_MULTISIG_ADDR, amount));
-//        daoArrayBalance = daoArrayBalance - amount;
-//        return True;
-//
-//    emit Buy(msg.sender, token, amount, amountLPTokenDeposited, amountArrayMinted);
-//    }
+    // @TODO What's this?
+    //
+    //    // TODO: make this callable only from harvest
+    //    function withdrawDaoFunds(uint256 amount, bool max) external returns (bool) {
+    //        require(
+    //            msg.sender == DAO_MULTISIG_ADDR || msg.sender == HARVEST_MULTISIG_ADDR,
+    //            "withdrawDaoFunds: msg.sender != DAO_MULTISIG_ADDR || HARVEST_ADDR"
+    //        );
+    //        if (max) {amount = daoArrayBalance;}
+    //        require(ARRAY.transfer(DAO_MULTISIG_ADDR, amount));
+    //        daoArrayBalance = daoArrayBalance - amount;
+    //        return True;
+    //
+    //    emit Buy(msg.sender, token, amount, amountLPTokenDeposited, amountArrayMinted);
+    //    }
 
-    function sell(uint256 amountArray, bool max) external {
+    // @TODO why does user have to speciy amount when swapping MAX?
+    function sell(uint256 amountArray) public nonReentrant returns (bool success) {
+        success = _sell(amountArray);
+    }
 
-        if (max) {amountArray = ARRAY.balanceOf(msg.sender);}
+    function sell(bool max) public nonReentrant returns (bool success) {
+        uint256 amountArray = ARRAY.balanceOf(msg.sender);
+        success = _sell(amountArray);
+    }
+
+    function _sell(uint256 amountArray) internal returns (bool success) {
+
         require(ARRAY.balanceOf(msg.sender) <= amountArray, "Cannot burn more than amount");
-
-        // get bancor contract balance of LPtoken
-        uint256 curveLPTokenBalance = SP_TOKEN.balanceOf(address(this));
 
         // get total supply of array token, subtract amount burned
         uint256 amountArrayAfterBurn = virtualSupply - amountArray;
-        
+
         // get % of burned supply
         uint256 pctArrayBurned = amountArrayAfterBurn * PRECISION / virtualSupply;
 
@@ -362,102 +326,165 @@ contract Curve is ReentrancyGuard, Initializable {
         ARRAY.burn(msg.sender, amountArray);
 
         // send to burner
-        require(SP_TOKEN.transfer(msg.sender, amountLPTokenReturned), "Transfer failed");
-        
+        require(CRP.transfer(msg.sender, amountLPTokenReturned), "Transfer failed");
+
         // update virtual balance and supply
         virtualBalance = virtualBalance - amountLPTokenReturned;
         virtualSupply = virtualSupply - amountArray;
 
         emit Sell(msg.sender, amountArray, amountLPTokenReturned);
+        return success = true;
     }
 
 
-//    function withdrawDevFunds(address token, uint256 amount, bool max) external returns (bool) {
-//        bool success = false;
-//
-//        require(msg.sender == DEV_MULTISIG_ADDR, "withdrawDevFunds: msg.sender != DEV_MULTISIG_ADDR");
-//
-//
-//        if (token == address(ARRAY)) {
-//            require(amount <= devFundArrayBalance);
-//            if (max) {amount = devFundArrayBalance;}
-////            require(ARRAY.mint(VESTING_MULTISIG_ADDR, amount)); // @TODO this doesn't return a bool.
-//            devFundArrayBalance = devFundArrayBalance - amount;
-//            success = true;
-//
-//        } else {
-//
-//            require(amount <= devFundLPBalance);
-//            if (max) {amount = devFundLPBalance;}
-//            require(DAI.transfer(DEV_MULTISIG_ADDR, amount));
-//            devFundLPBalance = devFundLPBalance - amount;
-//            success = true;
-//        }
-//
-//        emit WithdrawDevFunds(token, amount);
-//        emit WithdrawDaoFunds(amount);
-//
-//        return success;
-//
-//    }
+    //    function withdrawDevFunds(address token, uint256 amount, bool max) external returns (bool) {
+    //        bool success = false;
+    //
+    //        require(msg.sender == DEV_MULTISIG_ADDR, "withdrawDevFunds: msg.sender != DEV_MULTISIG_ADDR");
+    //
+    //
+    //        if (token == address(ARRAY)) {
+    //            require(amount <= devFundArrayBalance);
+    //            if (max) {amount = devFundArrayBalance;}
+    ////            require(ARRAY.mint(VESTING_MULTISIG_ADDR, amount)); // @TODO this doesn't return a bool.
+    //            devFundArrayBalance = devFundArrayBalance - amount;
+    //            success = true;
+    //
+    //        } else {
+    //
+    //            require(amount <= devFundLPBalance);
+    //            if (max) {amount = devFundLPBalance;}
+    //            require(DAI.transfer(DEV_MULTISIG_ADDR, amount));
+    //            devFundLPBalance = devFundLPBalance - amount;
+    //            success = true;
+    //        }
+    //
+    //        emit WithdrawDevFunds(token, amount);
+    //        emit WithdrawDaoFunds(amount);
+    //
+    //        return success;
+    //
+    //    }
+
+    // // // // // // // // // // // // // //
+    // @TODO this needs extensive testing !!!
+    // // // // // // // // // // // // // //
+
+    function calculateArrayTokensGivenERC20Tokens(address token, uint256 amount) public returns (uint256
+        amountArrayToken)
+    {
+        require(this.isTokenInVirtualLP(token), "Token not in Virtual LP");
+        require(this.isTokenInLP(token), "Token not in Balancer LP");
+
+        uint256 amountLPToken = _calculateLPTokensGivenERC20Tokens(token, amount);
+        return _calculateArrayGivenLPTokenAMount(amountLPToken);
+    }
 
 
-    function calculateArrayGivenTokenAndAmount(
-        address token, uint256 amount
+    function _calculateLPTokensGivenERC20Tokens(address token, uint256 amount) private returns (uint256 amountLPToken)
+    {
 
-    ) public returns (uint256 amountArrayToMintNormalized) {
-        // Calculate amount of smartpool LP tokens returned
-        uint256 amountLPTokenTotal = SP_TOKEN.joinswapExternAmountIn(token, amount, 0);
+        uint256 weight = BP.getDenormalizedWeight(token);
+        uint256 totalWeight = BP.getTotalDenormalizedWeight();
+        uint256 balance = BP.getBalance(token);
+        uint256 fee = BP.getSwapFee();
+        uint256 supply = CRP.totalSupply();
 
+        return BP.calcPoolOutGivenSingleIn(balance, weight, supply, totalWeight, amount, fee);
+    }
+
+
+
+    function _calculateArrayGivenLPTokenAMount(uint256 amount) private returns (uint256 amountArrayToMintNormalized)
+    {
         // Calculate quantity of ARRAY minted based on total LP tokens
-        // virtualSupply =
-        uint256 amountArrayToMint = CURVE.purchaseTargetAmount(
+        uint256 amountArrayToMint = CURVE.calculatePurchaseReturn(
             virtualSupply,
             virtualBalance,
             reserveRatio,
-            amountLPTokenTotal
-
+            amount
         );
 
         return amountArrayToMint;
+    }
+
+    /**
+    @dev Checks if given token is part of the balancer pool
+    @param token Token to be checked.
+    @return bool Whether or not it's part
+*/
+
+    function isTokenInLP(address token) external view returns (bool) {
+        address[] memory lpTokens = BP.getCurrentTokens();
+        for (uint256 i = 0; i < lpTokens.length; i++) {
+            if (token == lpTokens[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+    @dev Checks if given token is part of the tokens that are allowed to add to the balancer pool
+    @param token Token to be checked.
+    @return bool Whether or not it's part
+*/
+
+    function isTokenInVirtualLP(address token) external view returns (bool) {
+
+        if (virtualLPTokens.length == 0) {
+            return false;
+        } else {
+            for (uint256 i = 0; i < virtualLPTokens.length; i++) {
+                if (token == virtualLPTokens[i]) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    /**
+    @dev Gets position of token in virtual LP
+    @param token Token to be checked.
+    @return bool Position
+*/
+    //noinspection NoReturn
+    function getTokenIndexInVirtualLP(address token) external view returns (uint256) {
+        require(this.isTokenInVirtualLP(token), "Token not in virtual LP");
+        for (uint256 i = 0; i < virtualLPTokens.length; i++) {
+            if (token == virtualLPTokens[i]) {
+                return i;
+            }
+        }
+    }
+
+    /**
+    @dev Adds token to the array of allowed tokens to be added to the balancer pool
+    @param token Token to be added.
+  */
+    function addTokenToVirtualLP(address token) public {
+        require(msg.sender == gov, "msg.sender != gov");
+        require(this.isTokenInLP(token), "Token not in Balancer LP");
+        require(!this.isTokenInVirtualLP(token), "Token already added to virtual LP");
+
+        virtualLPTokens.push(token);
+        //        emit addTokenToVirtualLP(token);
 
     }
 
+    /**
+    @dev Removes token to the array of allowed tokens to be added to the balancer pool
+    @param token Token to be removed.
+    */
 
+    function removeTokenFromVirtualLP(address token) public {
+        require(msg.sender == gov, "msg.sender != gov");
+        require(this.isTokenInVirtualLP(token), "Token not in Virtual LP");
 
-//    function isTokenInVirtualLP(address token) external view returns (bool) {
-//        for (uint i=0; i<=virtualLPTokens.length; i++) {
-//            if (token == virtualLPTokens[i]) {
-//                return true;
-//            }
-//        }
-//        return false;
-//    }
+        uint256 tokenIndex = this.getTokenIndexInVirtualLP(token);
+        delete virtualLPTokens[tokenIndex];
 
-//    function getTokenIndexInVirtualLP(address token) external view returns (uint256) {
-//        require(this.isTokenInVirtualLP(token), "Token not in virtual LP");
-//        for (uint i=0; i<=virtualLPTokens.length; i++) {
-//            if (token == virtualLPTokens[i]) {
-//                return i;
-//            }
-//        }
-//    }
-
-//    function addTokenToVirtualLP(address token) public {
-//        require(msg.sender == gov, "msg.sender != gov");
-//        require(this.isTokenInLP(token), "Token not in Balancer LP");
-//        require(!this.isTokenInVirtualLP(token), "Token already added to virtual LP");
-//
-//        virtualLPTokens.push(token);
-//        emit addTokenToVirtualLP(token); // TODO
-//    }
-
-//    function removeTokenFromVirtualLP(address token) public {
-//        require(msg.sender == gov, "msg.sender != gov");
-//        uint256 tokenIndex = this.getTokenIndexInVirtualLP(token);
-//
-//        delete virtualLPTokens[tokenIndex];
-
- //       emit removeTokenFromVirtualLP(token); // TODO
+        //        emit removeTokenFromVirtualLP(token);
     }
-//}
+}
