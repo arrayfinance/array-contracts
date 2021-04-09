@@ -26,3 +26,21 @@ def test_correct_slope(curve, accounts):
     m = collateral / (cw * supply ** (1 / cw))
     m = round( m * 1e6 )
     assert m == 1
+
+
+# add, check for, and remove tokens to the virtual registry which inherits from oz's
+# enumerable set
+def test_add_remove_virtual_lp(dai, weth, wbtc, curve, accounts):
+    me = accounts[0]
+
+    assert curve.addTokenToVirtualLP( dai.address, {'from': me} )
+    assert curve.addTokenToVirtualLP( weth.address, {'from': me} )
+    assert curve.addTokenToVirtualLP( wbtc.address, {'from': me} )
+
+    assert curve.isTokenInVirtualLP( dai.address )
+    assert curve.isTokenInVirtualLP( weth.address )
+    assert curve.isTokenInVirtualLP( wbtc.address )
+
+    assert curve.removeTokenFromVirtualLP( dai.address, {'from': me} )
+    assert curve.removeTokenFromVirtualLP( weth.address, {'from': me} )
+    assert curve.removeTokenFromVirtualLP( wbtc.address, {'from': me} )

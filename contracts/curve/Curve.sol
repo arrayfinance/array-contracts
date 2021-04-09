@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 interface I_ERC20 {
 
@@ -85,8 +86,15 @@ interface I_CRP {
 
 interface I_BPool {
 
+    function MAX_IN_RATIO() external view returns (uint);
+
+    function MAX_OUT_RATIO() external view returns (uint);
+
+
     function getNumTokens() external view returns (uint);
+
     function getCurrentTokens() external view returns (address[] memory tokens);
+
     function getDenormalizedWeight(address token) external view returns (uint);
 
     function getTotalDenormalizedWeight() external view returns (uint);
@@ -175,8 +183,8 @@ contract Curve is ReentrancyGuard, Initializable {
     address public owner;
     address public devFund;
     address public gov;
-
-    address[] public virtualLPTokens;
+    using EnumerableSet for EnumerableSet.AddressSet;
+    EnumerableSet.AddressSet private virtualLpTokens;
 
     I_ERC20 public ARRAY;
     I_BancorFormula public CURVE;
@@ -394,7 +402,6 @@ contract Curve is ReentrancyGuard, Initializable {
     }
 
 
-
     function _calculateArrayGivenLPTokenAMount(uint256 amount) private returns (uint256 amountArrayToMintNormalized)
     {
         // Calculate quantity of ARRAY minted based on total LP tokens
@@ -427,64 +434,32 @@ contract Curve is ReentrancyGuard, Initializable {
     /**
     @dev Checks if given token is part of the tokens that are allowed to add to the balancer pool
     @param token Token to be checked.
-    @return bool Whether or not it's part
+    @return contains Whether or not it's part
 */
 
-    function isTokenInVirtualLP(address token) external view returns (bool) {
-
-        if (virtualLPTokens.length == 0) {
-            return false;
-        } else {
-            for (uint256 i = 0; i < virtualLPTokens.length; i++) {
-                if (token == virtualLPTokens[i]) {
-                    return true;
-                }
-            }
-            return false;
-        }
+    function isTokenInVirtualLP(address token) external view returns (bool contains) {
+        return contains = virtualLpTokens.contains(token);
     }
 
-    /**
-    @dev Gets position of token in virtual LP
-    @param token Token to be checked.
-    @return bool Position
-*/
-    //noinspection NoReturn
-    function getTokenIndexInVirtualLP(address token) external view returns (uint256) {
-        require(this.isTokenInVirtualLP(token), "Token not in virtual LP");
-        for (uint256 i = 0; i < virtualLPTokens.length; i++) {
-            if (token == virtualLPTokens[i]) {
-                return i;
-            }
-        }
-    }
-
-    /**
-    @dev Adds token to the array of allowed tokens to be added to the balancer pool
-    @param token Token to be added.
-  */
-    function addTokenToVirtualLP(address token) public {
+    function addTokenToVirtualLP(address token) public returns (bool success){
         require(msg.sender == gov, "msg.sender != gov");
         require(this.isTokenInLP(token), "Token not in Balancer LP");
-        require(!this.isTokenInVirtualLP(token), "Token already added to virtual LP");
 
-        virtualLPTokens.push(token);
-        //        emit addTokenToVirtualLP(token);
-
+        return success = virtualLpTokens.add(token);
     }
 
-    /**
-    @dev Removes token to the array of allowed tokens to be added to the balancer pool
-    @param token Token to be removed.
-    */
-
-    function removeTokenFromVirtualLP(address token) public {
+    function removeTokenFromVirtualLP(address token) public returns (bool success) {
         require(msg.sender == gov, "msg.sender != gov");
         require(this.isTokenInVirtualLP(token), "Token not in Virtual LP");
 
-        uint256 tokenIndex = this.getTokenIndexInVirtualLP(token);
-        delete virtualLPTokens[tokenIndex];
-
-        //        emit removeTokenFromVirtualLP(token);
+        return success = virtualLpTokens.remove(token);
     }
+
+    function _notOverMaxInBalance(uint256 amount, address token) private view returns (bool isUnder){
+        uint256 _max = BP.MAX_IN_RATIO();
+        uint256 bal = BP.getBalance(token);
+
+
+    }
+
 }
