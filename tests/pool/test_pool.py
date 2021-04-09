@@ -3,9 +3,9 @@ import pytest
 
 @pytest.fixture( scope='module', autouse=True )
 def pool():
-    from scripts.setup import spool
+    from scripts.create_smartpool import get_spool
     # returns the smart pool that we create in the script
-    yield spool
+    yield get_spool()
 
 
 @pytest.fixture( scope='module', autouse=True )
@@ -15,9 +15,11 @@ def bpool(pool, interface):
 
 
 # puts 100 DAI in and gets some pool tokens out
-def test_pool_in(someguy, accounts, pool, dai, whale):
+def test_pool_in(someguy, accounts, pool, tokens, whales):
     accounts.default = someguy
-    dai.transfer( someguy, 100 * 1e18, {'from': whale.dai} )
+    dai = tokens.dai
+    whale = whales.dai
+    dai.transfer( someguy, 100 * 1e18, {'from': whale} )
     before = pool.balanceOf( someguy )
     dai.approve( pool, 100e18 )
     tx = pool.joinswapExternAmountIn( dai.address, 100 * 1e18, 0 )
