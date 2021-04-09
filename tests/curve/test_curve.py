@@ -3,10 +3,15 @@ import brownie
 from brownie import ZERO_ADDRESS
 
 
-@pytest.fixture( scope='module', autouse=True )
+@pytest.fixture( scope='function', autouse=True )
 def curve():
-    from scripts.setup import curve
-    yield curve
+    from scripts.setup import get_curve
+    yield get_curve()
+
+
+@pytest.fixture( autouse=True )
+def isolation(fn_isolation):
+    pass
 
 
 def test_revert_already_initialized_curve(curve, accounts):
@@ -30,8 +35,11 @@ def test_correct_slope(curve, accounts):
 
 # add, check for, and remove tokens to the virtual registry which inherits from oz's
 # enumerable set
-def test_add_remove_virtual_lp(dai, weth, wbtc, curve, accounts):
+def test_add_remove_virtual_lp(tokens, curve, accounts):
     me = accounts[0]
+    dai = tokens.dai
+    weth = tokens.weth
+    wbtc = tokens.wbtc
 
     assert curve.addTokenToVirtualLP( dai.address, {'from': me} )
     assert curve.addTokenToVirtualLP( weth.address, {'from': me} )
@@ -44,3 +52,19 @@ def test_add_remove_virtual_lp(dai, weth, wbtc, curve, accounts):
     assert curve.removeTokenFromVirtualLP( dai.address, {'from': me} )
     assert curve.removeTokenFromVirtualLP( weth.address, {'from': me} )
     assert curve.removeTokenFromVirtualLP( wbtc.address, {'from': me} )
+
+
+# check if our pre-calc for array is rightk
+def test_correct_calc_estimation(curve, tokens, accounts, whales):
+    me = accounts[0]
+    dai = tokens.dai
+    whale = whales.dai
+    amount = 1000 * 1e18
+
+    dai.transfer( me, amount, {'from': whale} )
+    dai.approve( curve, amount, {'from': me} )
+
+    calc = curve.calculateArrayTokensGivenERC20Tokens( dai, amount )
+    tx = curve.buy( dai, amount, {'from': me} )
+
+    assert calc == tx.return_value

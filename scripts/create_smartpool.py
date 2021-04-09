@@ -82,7 +82,7 @@ def create_map():
     return d
 
 
-def main():
+def get_spool():
     d = create_map()
 
     someguy = accounts.default = accounts[0]
