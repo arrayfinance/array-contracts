@@ -5,23 +5,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-
-interface I_ERC20 {
-
-    function mint(address _to, uint256 amount) external;
-
-    function burn(address _from, uint256 amount) external;
-
-    function transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
-
-    function transfer(address _to, uint256 _value) external returns (bool success);
-
-    function balanceOf(address _owner) external view returns (uint256 balance);
-
-    function allowance(address _owner, address _spender) external view returns (uint256 amount);
-
-    function approve(address _spender, uint256 _value) external returns (bool success);
-}
+import "@openzeppelin/contracts/token/ERC20/IERC20";
 
 interface I_BancorFormula {
     function calculatePurchaseReturn(uint256 _supply, uint256 _reserveBalance, uint32 _reserveWeight, uint256 _amount)
@@ -33,33 +17,13 @@ interface I_BancorFormula {
 }
 
 interface I_CRP {
-    function mintPoolShareFromLib(uint amount) external;
-
-    function pushPoolShareFromLib(address to, uint amount) external;
-
-    function pullPoolShareFromLib(address from, uint amount) external;
-
-    function burnPoolShareFromLib(uint amount) external;
-
     function totalSupply() external view returns (uint);
-
-    function getController() external view returns (address);
 
     function transfer(address dst, uint amt) external returns (bool);
 
     function transferFrom(
         address src, address dst, uint amt
     ) external returns (bool);
-
-    function balanceOf(address whom) external view returns (uint);
-
-    function allowance(address src, address dst) external view returns (uint);
-
-    function approve(address dst, uint amt) external returns (bool);
-
-    function joinPool(uint poolAmountOut, uint[] calldata maxAmountsIn) external;
-
-    function exitPool(uint poolAmountIn, uint[] calldata minAmountsOut) external;
 
     function bPool() external view returns (address);
 
@@ -68,34 +32,11 @@ interface I_CRP {
         uint tokenAmountIn,
         uint minPoolAmountOut
     ) external returns (uint poolAmountOut);
-
-    function joinswapPoolAmountOut(
-        address tokenIn,
-        uint poolAmountOut,
-        uint maxAmountIn
-    ) external returns (uint tokenAmountIn);
-
-    function exitswapPoolAmountIn(
-        address tokenOut,
-        uint poolAmountIn,
-        uint minAmountOut
-    ) external returns (uint tokenAmountOut);
-
-    function exitswapExternAmountOut(
-        address tokenOut,
-        uint tokenAmountOut,
-        uint maxPoolAmountIn
-    ) external returns (uint poolAmountIn);
 }
 
 interface I_BPool {
 
     function MAX_IN_RATIO() external view returns (uint);
-
-    function MAX_OUT_RATIO() external view returns (uint);
-
-
-    function getNumTokens() external view returns (uint);
 
     function getCurrentTokens() external view returns (address[] memory tokens);
 
@@ -103,18 +44,10 @@ interface I_BPool {
 
     function getTotalDenormalizedWeight() external view returns (uint);
 
-    function getNormalizedWeight(address token) external view returns (uint);
-
     function getBalance(address token) external view returns (uint);
 
     function getSwapFee() external view returns (uint);
 
-    function getController() external view returns (address);
-
-    // @dev calculates how much pool token you'd get putting in a certain token, this token is defined by balance,
-    //      weight
-    //      tokenBalanceIn, tokenWeightIn, totalWeight, swapFee are from the bpool
-    //      poolSupply is from the spool
     function calcPoolOutGivenSingleIn(
         uint tokenBalanceIn,
         uint tokenWeightIn,
@@ -123,19 +56,6 @@ interface I_BPool {
         uint tokenAmountIn,
         uint swapFee
     ) external pure returns (uint poolAmountOut);
-
-    // @dev calculates how much pool token you'd get putting in a certain token, this token is defined by balance,
-    //      weight
-    //      tokenBalanceIn, tokenWeightIn, totalWeight, swapFee are from the bpool
-    //      poolSupply is from the spool
-    function calcSingleInGivenPoolOut(
-        uint tokenBalanceIn,
-        uint tokenWeightIn,
-        uint poolSupply,
-        uint totalWeight,
-        uint poolAmountOut,
-        uint swapFee
-    ) external pure returns (uint tokenAmountIn);
 
 }
 
@@ -190,7 +110,7 @@ contract Curve is ReentrancyGuard, Initializable {
     using EnumerableSet for EnumerableSet.AddressSet;
     EnumerableSet.AddressSet private virtualLpTokens;
 
-    I_ERC20 public ARRAY;
+    IERC20 public ARRAY;
     I_BancorFormula public CURVE;
     I_CRP public CRP;
     I_BPool public BP;
@@ -216,7 +136,7 @@ contract Curve is ReentrancyGuard, Initializable {
     ) {
         owner = _owner;
         gov = _gov;
-        ARRAY = I_ERC20(_arrayToken);
+        ARRAY = IERC20(_arrayToken);
         CURVE = I_BancorFormula(_curve);
         CRP = I_CRP(_smartPool);
     }
@@ -239,7 +159,7 @@ contract Curve is ReentrancyGuard, Initializable {
 
 
     function buy(address token, uint256 amount) public nonReentrant returns (uint256 returnAmount) {
-        I_ERC20 _token = I_ERC20(token);
+        IERC20 _token = IERC20(token);
 
         require(this.isTokenInLP(token)); // dev: token not in part of collateral
         require(this.isTokenInVirtualLP(token)); // dev: token not greenlisted
