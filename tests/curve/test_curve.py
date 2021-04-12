@@ -3,6 +3,7 @@ import brownie
 from brownie import ZERO_ADDRESS
 
 
+
 @pytest.fixture(scope='function', autouse=True)
 def deployer():
     from scripts.deployer import Deployer
@@ -83,3 +84,4 @@ def test_revert_no_balance(deployer, accounts, isolation):
     coin.approve(deployer.crv, buy)
     with brownie.reverts("dev: user balance < amount"):
         deployer.crv.buy(coin, buy, {'from' : accounts[0]})
+
