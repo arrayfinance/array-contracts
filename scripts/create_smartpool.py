@@ -103,7 +103,7 @@ def get_spool():
         d[k].contract.approve( spool.address, 2 ** 256 - 1 )
 
     spool.createPool( POOL_TOKENS )
-    spool.setCap( 1e28 )
+    spool.setCap( 1e40 )
 
     return spool
 
