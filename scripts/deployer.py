@@ -1,18 +1,34 @@
 from dotmap import DotMap
+from rich.console import Console
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from rich.progress import Progress
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+
+def plot():
+    df = pd.read_csv('../../plot/data.csv')
+    # plt.figure()
+    df.plot(x='supply', y='price')
+    sns.set_theme(style="whitegrid")
+    sns.lineplot(x=df.supply, y=df.price, palette="tab9", linewidth=0.5, markers=True)
+    plt.show()
 
 
 class Deployer:
     from brownie.network import rpc, accounts, history, transaction
     from brownie import project, network, ZERO_ADDRESS
-    if project.get_loaded_projects() == 0:
-        project.load(name='ArrayContractsProject')
+    project.load(name='ArrayContractsProject')
     from brownie.project.ArrayContractsProject import interface, ArrayToken, BancorFormula, Curve
 
     POOL_VALUE = 700_000
-    POOL_TOKENS = 333333333333333333333333
 
     def __init__(self):
         # self.network.disconnect(kill_rpc=True)
+
         if not self.network.is_connected():
             self.network.connect('mainnet-fork', launch_rpc=True)
 
@@ -79,6 +95,9 @@ class Deployer:
 
         self.me = self.accounts[9]
         self.accounts.default = self.me
+
+        self.balance = 411513 * 1e18
+        self.cw = 384615
 
         for k, v in self.tokens.items():
             w = self.whales[k]
@@ -155,8 +174,8 @@ class Deployer:
         for k in self.tokens.keys():
             self.tokens[k].approve(spool.address, 2 ** 256 - 1)
 
-        spool.createPool(self.POOL_TOKENS)
-        spool.setCap(1e28)
+        spool.createPool(self.balance)
+        spool.setCap(2 ** 256 - 1)
 
         self.pool = spool
 
@@ -165,11 +184,12 @@ class Deployer:
 
     def deploy_curve(self):
         self.accounts.default = self.me
-        self.crv = self.Curve.deploy(self.me, self.me, self.array, self.bancor, self.pool, self.bpool)
-        self.pool.approve(self.crv, self.POOL_TOKENS)
+        self.crv = self.Curve.deploy(self.me, self.me, self.array,
+                                     self.bancor, self.pool, self.bpool, self.cw)
+        self.pool.approve(self.crv, self.balance)
         self.array.grantRole(self.array.MINTER_ROLE(), self.crv)
         self.array.grantRole(self.array.BURNER_ROLE(), self.crv)
-        self.crv.initialize(self.POOL_TOKENS)
+        self.crv.initialize(self.balance)
         self.cw = self.crv.reserveRatio() / 1e6
         self.m = self.get_crv_m()
         for v in self.tokens.values():
@@ -186,8 +206,42 @@ class Deployer:
     def get_crv_m(self):
         return float(self.get_crv_balance()) / (self.cw * float(self.get_crv_supply()) ** (1 / self.cw))
 
-    def calc_collateral(self, ):
-        return self.m * (self.cw * float(self.get_crv_supply()) ** (1 / self.cw))
+    def plot_curve(self):
+        with open("../../plot/data.csv", "wt") as report_file:
+            console = Console(file=report_file)
+            console.clear(home=True)
+            self.accounts.default = self.me
+            console.print('supply,price')
+            l = []
+            with Progress(transient=True) as progress:
+                while not self.get_crv_supply() > 100000e18:
+                    progress.start()
+                    for k, v in self.tokens.items():
+                        dec = v.decimals()
+
+                        buy = 50000 * 10 ** dec / self.dai_prices[k]
+
+                        if v.balanceOf(self.me) <= buy:
+                            print(f'{k} has not enough balance\n')
+                        elif buy >= self.bpool.getBalance(v.address) / 2 - 100:
+                            print(f'{k} if over max in\n')
+                        else:
+                            print(f'{k} buying\n')
+
+                        tx = self.crv.buy(v.address, int(buy))
+
+                        if tx.return_value:
+                            purchase = tx.return_value / 1e18
+                            buy_amount_in_dai = (buy / 10 ** dec) * self.dai_prices[k]
+                            sp = self.get_crv_supply() / 1e18
+                            price_in_dai = buy_amount_in_dai / purchase
+                            if k == 'dai':
+                                console.print(f'{sp:.2f},{price_in_dai:.2f}')
+                                l.append({'supply': int(sp), 'price': float(price_in_dai)})
+
+    def calc_collateral(self, m, n):
+        cw = 1 / (1 + n)
+        self.balance = self.m * (self.cw * float(self.get_crv_supply()) ** (1 / self.cw))
 
     def pool_in(self, factor):
         m = 2 ** 256 - 1
@@ -196,3 +250,8 @@ class Deployer:
     def pool_out(self, factor):
         m = 0
         self.pool.exitPool(factor, [m, m, m, m, m])
+
+
+d = Deployer()
+d.setup_curve()
+d.plot_curve()

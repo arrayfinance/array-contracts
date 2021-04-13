@@ -5,7 +5,18 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+
+interface I_ARRAY is IERC20 {
+    function mint(address to, uint256 amount) external;
+
+    function burn(address from, uint256 amount) external;
+}
+
+interface IChainLinkFeed {
+    function latestAnswer() external view returns (int256);
+}
 
 interface I_BancorFormula {
     function calculatePurchaseReturn(uint256 _supply, uint256 _reserveBalance, uint32 _reserveWeight, uint256 _amount)
@@ -100,17 +111,17 @@ contract Curve is ReentrancyGuard, Initializable {
     // Keeps track of ARRAY for DAO multisig
     uint256 public daoArrayBalance;
 
-    // Used to calculate bonding bancor slope
-    // Returns same result as x^2
-    uint32 public reserveRatio = 333333; // symbolizes 1/3, based on bancor's max of 1/1,000,000
-
     address public owner;
     address public devFund;
     address public gov;
     using EnumerableSet for EnumerableSet.AddressSet;
     EnumerableSet.AddressSet private virtualLpTokens;
 
-    IERC20 public ARRAY;
+    IChainLinkFeed public constant FASTGAS = IChainLinkFeed(0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C);
+
+    uint32 public reserveRatio;
+
+    I_ARRAY public ARRAY;
     I_BancorFormula public CURVE;
     I_CRP public CRP;
     I_BPool public BP;
@@ -127,25 +138,35 @@ contract Curve is ReentrancyGuard, Initializable {
     event WithdrawDevFunds(address token, uint256 amount);
     event WithdrawDaoFunds(uint256 amount);
 
+
     constructor(
         address _owner,
         address _gov,
         address _arrayToken,
         address _curve,
-        address _smartPool
+        address _smartPool,
+        address _bpool,
+        uint32 _cw
     ) {
         owner = _owner;
         gov = _gov;
-        ARRAY = IERC20(_arrayToken);
+        ARRAY = I_ARRAY(_arrayToken);
         CURVE = I_BancorFormula(_curve);
         CRP = I_CRP(_smartPool);
+        BP = I_BPool(_bpool);
+        reserveRatio = _cw;
+    }
+
+    modifier validGasPrice() {
+        require(
+            tx.gasprice <= uint(FASTGAS.latestAnswer()),
+            "Must send equal to or lower than fast gas price to mitigate front running attacks."
+        );
+        _;
     }
 
     function initialize(uint256 initialAmountLPToken) public initializer {
         require(msg.sender == owner, "!owner");
-
-        // @dev sets the balancer pool that's needed to get balances of individual tokens, etc..
-        BP = I_BPool(CRP.bPool());
 
         // Send LP tokens from owner to balancer
         require(CRP.transferFrom(owner, address(this), initialAmountLPToken), "Transfer failed");
@@ -158,14 +179,17 @@ contract Curve is ReentrancyGuard, Initializable {
     }
 
 
-    function buy(address token, uint256 amount) public nonReentrant returns (uint256 returnAmount) {
+    function buy(address token, uint256 amount) public nonReentrant validGasPrice returns (uint256 returnAmount) {
         IERC20 _token = IERC20(token);
 
         require(this.isTokenInLP(token)); // dev: token not in part of collateral
         require(this.isTokenInVirtualLP(token)); // dev: token not greenlisted
         require(amount > 0); // dev: amount is 0
         require(_token.allowance(msg.sender, address(this)) >= amount); // dev: user allowance < amount
-        require(_token.balanceOf(msg.sender) >= amount); // dev: user balance < amount
+        require(_token.balanceOf(msg.sender) >= amount);  // dev: user balance < amount
+
+        uint256 max_in_balance = (BP.getBalance(token) / 2) +  5; require(amount <= max_in_balance);  // dev: ratio in to high
+
         require(_token.transferFrom(msg.sender, address(this), amount)); // dev: transfer to contract failed"
         require(_token.balanceOf(address(this)) >= amount); // dev: contract did not receive enough token
 
@@ -186,12 +210,14 @@ contract Curve is ReentrancyGuard, Initializable {
         uint256 maxLpTokenAmount = _calculateLPTokensGivenERC20Tokens(token, amountTokensForLP);
         uint256 minLpTokenAmount = maxLpTokenAmount * MAX_SLIPPAGE / PRECISION;
 
+
         // send the pool the left over tokens for LP, expecting minimum return
-        uint256 lpTokenAmount = CRP.joinswapExternAmountIn(address(_token), amountTokensForLP, minLpTokenAmount);
+        uint256 lpTokenAmount = CRP.joinswapExternAmountIn(address(_token), amountTokensForLP, 0);
 
         // calculate how many array tokens correspond to the LP tokens that we got
         uint256 amountArrayToMint = _calculateArrayGivenLPTokenAMount(lpTokenAmount);
-        require(amountArrayToMint + virtualSupply <= maxSupply); // dev: minted array > total supply
+        require(amountArrayToMint + virtualSupply <= maxSupply);
+        // dev: minted array > total supply
 
         // take off the cut for the multisig
         uint256 amountArrayForDAOMultisig = amountArrayToMint * DAO_PCT_ARRAY / PRECISION;
@@ -200,10 +226,6 @@ contract Curve is ReentrancyGuard, Initializable {
         // rest goes to user
         uint256 amountArrayForUser = amountArrayToMint - amountArrayForDAOMultisig;
         ARRAY.mint(msg.sender, amountArrayForUser);
-
-        //        devFundLPBalance = devFundLPBalance + amountLPTokenDevFund;
-        //        devFundArrayBalance = devFundArrayBalance + amountArrayDevFund;
-        //        daoArrayBalance = daoArrayBalance + amountArrayDao;
 
         // update virtual balance and supply
         virtualBalance = virtualBalance + lpTokenAmount;
@@ -214,25 +236,7 @@ contract Curve is ReentrancyGuard, Initializable {
     }
 
 
-
-    // @TODO What's this?
-    //
-    //    // TODO: make this callable only from harvest
-    //    function withdrawDaoFunds(uint256 amount, bool max) external returns (bool) {
-    //        require(
-    //            msg.sender == DAO_MULTISIG_ADDR || msg.sender == HARVEST_MULTISIG_ADDR,
-    //            "withdrawDaoFunds: msg.sender != DAO_MULTISIG_ADDR || HARVEST_ADDR"
-    //        );
-    //        if (max) {amount = daoArrayBalance;}
-    //        require(ARRAY.transfer(DAO_MULTISIG_ADDR, amount));
-    //        daoArrayBalance = daoArrayBalance - amount;
-    //        return True;
-    //
-    //    emit Buy(msg.sender, token, amount, amountLPTokenDeposited, amountArrayMinted);
-    //    }
-
-    // @TODO why does user have to speciy amount when swapping MAX?
-    function sell(uint256 amountArray) public nonReentrant returns (uint256 returnAmount) {
+    function sell(uint256 amountArray) public nonReentrant validGasPrice returns (uint256 returnAmount) {
         returnAmount = _sell(amountArray);
     }
 
@@ -243,22 +247,21 @@ contract Curve is ReentrancyGuard, Initializable {
 
     function _sell(uint256 amountArray) internal returns (uint256 returnAmount) {
 
-        require(amountArray <= ARRAY.balanceOf(msg.sender)); // dev: user balance < amount
+        require(amountArray <= ARRAY.balanceOf(msg.sender));
+        // dev: user balance < amount
 
         // get total supply of array token, subtract amount burned
         uint256 amountArrayAfterBurn = virtualSupply - amountArray;
 
-//         get % of burned supply
-//        uint256 pctArrayBurned = amountArrayAfterBurn * PRECISION / virtualSupply;
-
         // calculate how much of the LP token the burner gets
-        uint256 amountLPTokenReturned = _calculateLPtokensGivenArrayTokens(amountArray);
+        uint256 amountLPTokenReturned = calculateLPtokensGivenArrayTokens(amountArray);
 
         // burn token
         ARRAY.burn(msg.sender, amountArray);
 
-        // send to burner
-        require(CRP.transfer(msg.sender, amountLPTokenReturned)); // dev: transfer of lp token to user failed
+        // send to user
+        require(CRP.transfer(msg.sender, amountLPTokenReturned));
+        // dev: transfer of lp token to user failed
 
         // update virtual balance and supply
         virtualBalance = virtualBalance - amountLPTokenReturned;
@@ -269,55 +272,13 @@ contract Curve is ReentrancyGuard, Initializable {
     }
 
 
-    //    function withdrawDevFunds(address token, uint256 amount, bool max) external returns (bool) {
-    //        bool success = false;
-    //
-    //        require(msg.sender == DEV_MULTISIG_ADDR, "withdrawDevFunds: msg.sender != DEV_MULTISIG_ADDR");
-    //
-    //
-    //        if (token == address(ARRAY)) {
-    //            require(amount <= devFundArrayBalance);
-    //            if (max) {amount = devFundArrayBalance;}
-    ////            require(ARRAY.mint(VESTING_MULTISIG_ADDR, amount)); // @TODO this doesn't return a bool.
-    //            devFundArrayBalance = devFundArrayBalance - amount;
-    //            success = true;
-    //
-    //        } else {
-    //
-    //            require(amount <= devFundLPBalance);
-    //            if (max) {amount = devFundLPBalance;}
-    //            require(DAI.transfer(DEV_MULTISIG_ADDR, amount));
-    //            devFundLPBalance = devFundLPBalance - amount;
-    //            success = true;
-    //        }
-    //
-    //        emit WithdrawDevFunds(token, amount);
-    //        emit WithdrawDaoFunds(amount);
-    //
-    //        return success;
-    //
-    //    }
-
-    // // // // // // // // // // // // // //
-    // @TODO this needs extensive testing !!!
-    // // // // // // // // // // // // // //
-
-    function calculateFullArrayTokensGivenERC20Tokens(address token, uint256 amount) public view returns
-    (uint256 amountFull)
-    {
-        require(this.isTokenInVirtualLP(token), "Token not in Virtual LP");
-        require(this.isTokenInLP(token), "Token not in Balancer LP");
-
-        uint256 maxLpTokenAmount = _calculateLPTokensGivenERC20Tokens(token, amount);
-        uint256 amountArrayToMint = _calculateArrayGivenLPTokenAMount(maxLpTokenAmount);
-        return amountFull = amountArrayToMint;
-    }
-
     function calculateArrayTokensGivenERC20Tokens(address token, uint256 amount) public view returns
     (uint256 amountArrayForUser)
     {
-        require(this.isTokenInVirtualLP(token), "Token not in Virtual LP");
-        require(this.isTokenInLP(token), "Token not in Balancer LP");
+        require(this.isTokenInVirtualLP(token));
+        // dev: token not in virtual LP
+        require(this.isTokenInLP(token));
+        // dev: token not in balancer LP
 
         uint256 amountTokensForDAOMultiSig = amount * DAO_PCT_TOKEN / PRECISION;
         uint256 amountTokensForDEVMultiSig = amount * DEV_PCT_TOKEN / PRECISION;
@@ -330,7 +291,9 @@ contract Curve is ReentrancyGuard, Initializable {
 
         return amountArrayForUser = amountArrayToMint - amountArrayForDAOMultisig;
     }
-    function _calculateLPtokensGivenArrayTokens(uint256 amount) private view returns (uint256 amountLPToken){
+
+    function calculateLPtokensGivenArrayTokens(uint256 amount) public returns (uint256 amountLPToken)
+    {
 
         // Calculate quantity of ARRAY minted based on total LP tokens
         return amountLPToken = CURVE.calculateSaleReturn(
@@ -341,8 +304,8 @@ contract Curve is ReentrancyGuard, Initializable {
         );
 
     }
-    function _calculateLPTokensGivenERC20Tokens(address token, uint256 amount) private view returns (uint256
-        amountLPToken)
+
+    function _calculateLPTokensGivenERC20Tokens(address token, uint256 amount) private view returns (uint256 amountLPToken)
     {
 
         uint256 weight = BP.getDenormalizedWeight(token);
@@ -354,19 +317,15 @@ contract Curve is ReentrancyGuard, Initializable {
         return BP.calcPoolOutGivenSingleIn(balance, weight, supply, totalWeight, amount, fee);
     }
 
-
-    function _calculateArrayGivenLPTokenAMount(uint256 amount) private view returns (uint256
-        amountArrayToMintNormalized)
+    function _calculateArrayGivenLPTokenAMount(uint256 amount) private view returns (uint256 amountArrayToken)
     {
         // Calculate quantity of ARRAY minted based on total LP tokens
-        uint256 amountArrayToMint = CURVE.calculatePurchaseReturn(
+        return amountArrayToken = CURVE.calculatePurchaseReturn(
             virtualSupply,
             virtualBalance,
             reserveRatio,
             amount
         );
-
-        return amountArrayToMint;
     }
 
     /**
@@ -407,13 +366,6 @@ contract Curve is ReentrancyGuard, Initializable {
         require(this.isTokenInVirtualLP(token), "Token not in Virtual LP");
 
         return success = virtualLpTokens.remove(token);
-    }
-
-    function _notOverMaxInBalance(uint256 amount, address token) private view returns (bool isUnder){
-        uint256 _max = BP.MAX_IN_RATIO();
-        uint256 bal = BP.getBalance(token);
-
-
     }
 
 }
