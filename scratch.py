@@ -9,9 +9,9 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-df = pd.read_csv('../plot/data.csv')
+df = pd.read_csv('data.csv')
 
-fig = go.Figure(go.Scatter(x=df['supply'], y=df['price'], line_shape='spline'))
+fig = go.Figure(go.Scatter(x=df['supply'], y=df['price']))
 app.layout = html.Div(children=[
     dcc.Graph(
         id='example-graph',
