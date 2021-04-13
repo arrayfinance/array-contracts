@@ -208,7 +208,7 @@ class Deployer:
         return float(self.get_crv_balance()) / (self.cw * float(self.get_crv_supply()) ** (1 / self.cw))
 
     def plot_curve(self):
-        with open("../data.csv", "wt") as report_file:
+        with open("data.csv", "wt") as report_file:
             console = Console(file=report_file)
             console.clear(home=True)
             self.accounts.default = self.me
