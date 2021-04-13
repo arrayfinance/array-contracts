@@ -3,6 +3,7 @@ from rich.console import Console
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 from rich.progress import Progress
 import pandas as pd
 import seaborn as sns
@@ -207,7 +208,7 @@ class Deployer:
         return float(self.get_crv_balance()) / (self.cw * float(self.get_crv_supply()) ** (1 / self.cw))
 
     def plot_curve(self):
-        with open("../../plot/data.csv", "wt") as report_file:
+        with open("../data.csv", "wt") as report_file:
             console = Console(file=report_file)
             console.clear(home=True)
             self.accounts.default = self.me
@@ -240,8 +241,8 @@ class Deployer:
                                 l.append({'supply': int(sp), 'price': float(price_in_dai)})
 
     def calc_collateral(self, m, n):
-        cw = 1 / (1 + n)
-        self.balance = self.m * (self.cw * float(self.get_crv_supply()) ** (1 / self.cw))
+        self.cw = 1 / (1 + n)
+        self.balance = m * (self.cw * float(10000) ** (1 / self.cw))
 
     def pool_in(self, factor):
         m = 2 ** 256 - 1
@@ -253,5 +254,13 @@ class Deployer:
 
 
 d = Deployer()
-d.setup_curve()
-d.plot_curve()
+
+if len(sys.argv) == 2:
+    m = int(sys.argv[1])
+    n = int(sys.argv[2])
+    d.calc_collateral(m, n)
+
+print(d.cw)
+print(d.balance)
+# d.setup_curve()
+# d.plot_curve()
