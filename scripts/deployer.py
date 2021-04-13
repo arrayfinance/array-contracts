@@ -255,12 +255,11 @@ class Deployer:
 
 d = Deployer()
 
-if len(sys.argv) == 2:
+if len(sys.argv) == 3:
     m = int(sys.argv[1])
     n = int(sys.argv[2])
     d.calc_collateral(m, n)
 
-print(d.cw)
-print(d.balance)
-# d.setup_curve()
-# d.plot_curve()
+
+d.setup_curve()
+d.plot_curve()
