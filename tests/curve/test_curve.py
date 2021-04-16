@@ -1,16 +1,16 @@
 import pytest
 import brownie
-from brownie import ZERO_ADDRESS
+from brownie import *
 
 
-
-@pytest.fixture(scope='function', autouse=True)
-def deployer():
+@pytest.fixture(scope='function')
+def deployer(accounts):
     from scripts.deployer import Deployer
+    accounts.default = accounts[0]
     d = Deployer()
-    d.setup_curve()
+    d.setup()
+    d.deploy_curve()
     yield d
-
 
 @pytest.fixture(autouse=True)
 def isolation(fn_isolation):
@@ -22,18 +22,6 @@ def test_revert_already_initialized_curve(deployer, accounts, isolation):
     accounts.default = deployer.me
     with brownie.reverts('Initializable: contract is already initialized'):
         deployer.crv.initialize(initial_lp_tokens)
-
-
-# verifies that the balance and supply is according to mxˆ2 with m = 1e-6
-# m = collateral / (CW * tokenSupply ^ (1 / CW))
-def test_correct_slope(deployer, isolation):
-    collateral = deployer.get_crv_balance() / 1e18
-    supply = deployer.get_crv_supply() / 1e18
-    cw = deployer.crv.reserveRatio() / 1000000
-
-    m = collateral / (cw * supply ** (1 / cw))
-    m = round(m * 1e6)
-    assert m == 1
 
 
 # add, check for, and remove tokens to the virtual registry which inherits from oz's
@@ -70,7 +58,7 @@ def test_buy(deployer, accounts, isolation):
     accounts.default = deployer.me
     for k, v in deployer.tokens.items():
         prev = deployer.array.balanceOf(deployer.me)
-        m = min(v.balanceOf(deployer.me), (deployer.bpool.getBalance(v.address))/2 - 1000)
+        m = min(v.balanceOf(deployer.me), (deployer.bpool.getBalance(v.address)) / 3)
         tx = deployer.crv.buy(v.address, m)
         aft = deployer.array.balanceOf(deployer.me)
         assert int(tx.return_value) == (aft - prev)
@@ -83,5 +71,4 @@ def test_revert_no_balance(deployer, accounts, isolation):
     coin.transfer(ZERO_ADDRESS, coin.balanceOf(accounts[0]))
     coin.approve(deployer.crv, buy)
     with brownie.reverts("dev: user balance < amount"):
-        deployer.crv.buy(coin, buy, {'from' : accounts[0]})
-
+        deployer.crv.buy(coin, buy, {'from': accounts[0]})

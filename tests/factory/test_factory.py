@@ -3,6 +3,15 @@ import brownie
 from brownie import chain, ZERO_ADDRESS
 
 
+@pytest.fixture(scope='module')
+def deployer(accounts):
+    yield accounts[0]
+
+@pytest.fixture(scope='module')
+def someguy(accounts):
+    yield accounts[1]
+
+
 @pytest.fixture( scope='module', autouse=True )
 def af(ArrayFactory, deployer):
     yield deployer.deploy( ArrayFactory )
