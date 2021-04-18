@@ -6,12 +6,27 @@ from sigfig import round
 from dotenv import load_dotenv
 
 
+def unlock_account(address: str) -> None:
+    web3.provider.make_request("hardhat_impersonateAccount", [address])
+
+
 class Deployer:
-    from brownie import interface, ArrayToken, BancorFormula, Curve, accounts, ArrayToken, BancorFormula, Curve, interface, ZERO_ADDRESS, chain
+    from brownie import interface, ArrayToken, BancorFormula, Curve, accounts, ArrayToken, BancorFormula, Curve, interface, ZERO_ADDRESS, chain, web3
 
     POOL_VALUE = 700_000
 
+    accounts_to_unlock = ['0x5d3a536e4d6dbd6114cc1ead35777bab948e3643',
+                          '0x39aa39c021dfbae8fac545936693ac917d5e7563',
+                          '0xc11b1268c1a384e55c48c2391d8d480264a3a7f4',
+                          '0x93054188d876f558f4a66B2EF1d97d16eDf0895B',
+                          '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
+                          '0x13aec50f5D3c011cd3fed44e2a30C515Bd8a5a06',
+                          '0x16463c0fdB6BA9618909F5b120ea1581618C1b9E']
+
     def __init__(self, n=1.6):
+
+        for a in self.accounts_to_unlock:
+            self.web3.provider.make_request("hardhat_impersonateAccount", [a])
 
         self.whales = DotMap({
             'dai': self.accounts.at('0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503', force=True),
@@ -139,16 +154,16 @@ class Deployer:
         self.bancor = self.BancorFormula.deploy()
 
     def _deploy_pool(self):
-        pool_params = ['ARRAYLP', 'Array LP', [self.tokens[k].address for k in self.tokens], [self.in_balances[k] for k in self.tokens],
-                       [k * 1e19 for k in self.weights.values()], 1e14]
+        pool_params = ['ARRAYLP', 'Array LP', [self.tokens[k] for k in self.tokens], [self.in_balances[k] for k in self.tokens],
+                       [self.weights[k] * 1e19 for k in self.weights], 1e14]
 
         pool_rights = [True, True, True, True, False, True]
 
         crpfact = self.interface.fact('0xed52D8E202401645eDAD1c0AA21e872498ce47D0')
         tx = crpfact.newCrp('0x9424B1412450D0f8Fc2255FAf6046b98213B76Bd', pool_params, pool_rights)
-        spool = self.interface.pool(tx.return_value)
+        spool = self.interface.pool(tx.events[1]['pool'])
 
-        for k in self.tokens.keys():
+        for k in self.tokens:
             self.tokens[k].approve(spool.address, 2 ** 256 - 1)
 
         spool.createPool(self.balance)
@@ -161,7 +176,7 @@ class Deployer:
 
     def deploy_curve(self):
         self.balance = self.balance
-        self.accounts.default= self.me
+        self.accounts.default = self.me
         self.crv = self.Curve.deploy(self.me, self.me, self.array,
                                      self.bancor, self.pool, self.bpool, self.cw)
 
@@ -170,10 +185,10 @@ class Deployer:
         self.array.grantRole(self.array.BURNER_ROLE(), self.crv)
 
         self.crv.initialize(self.balance)
-        for v in self.tokens.values():
-            v.approve(self.crv, 2 ** 256 - 1)
-        for v in self.tokens.values():
-            self.crv.addTokenToVirtualLP(v)
+        for k in self.tokens:
+            self.tokens[k].approve(self.crv, 2 ** 256 - 1)
+        for k in self.tokens:
+            self.crv.addTokenToVirtualLP(self.tokens[k])
 
     def get_crv_supply(self):
         return self.crv.virtualSupply()
@@ -209,7 +224,10 @@ class Deployer:
 
             tokens_ = self.tokens
             while counter < 21:
-                for k, v in tokens_.items():
+                for k in tokens_:
+                    v = tokens_[k]
+                    print(v)
+                    print(tokens_)
                     dec = v.decimals()
 
                     buy = 50000 * 10 ** dec / self.dai_prices[k]
@@ -237,7 +255,7 @@ class Deployer:
         cw = 1 / (1 + n)
         m = 100 / (10000 ** n)
         balance = m * (cw * float(10000) ** (1 / cw))
-        balance = 0.434 * balance
+        balance = balance
 
         self.balance = 3.437 * balance * 1e18
         self.cw = int(round(cw * 1e6, 6))
@@ -254,7 +272,7 @@ class Deployer:
 def main():
     load_dotenv()
     n = os.getenv('EXPONENT')
-    d = Deployer(n)
+    d = Deployer(float(n))
     d.setup()
     d.deploy_curve()
     d.get_curve_data()

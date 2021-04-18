@@ -1,5 +1,6 @@
 import pytest
 import brownie
+from dotmap import DotMap
 from brownie import *
 
 
