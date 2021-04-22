@@ -2,90 +2,36 @@
 
 pragma solidity ^0.8.0;
 
+// openzeppelin stuff
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+
+// custom stuff
+import "../utils/GasPrice.sol";
+
+// interfaces
+import "../interfaces/IArrayToken.sol";
+import "../interfaces/IBancorFormula.sol";
+import "../interfaces/ISmartPool.sol";
+import "../interfaces/IBPool.sol";
 
 
-interface I_ARRAY is IERC20 {
-    function mint(address to, uint256 amount) external;
+contract Curve is ReentrancyGuard, AccessControl, GasPrice, Initializable {
 
-    function burn(address from, uint256 amount) external;
-}
+    bytes32 public constant DAO_MULTISIG = keccak256("DAO_MULTISIG");
+    bytes32 public constant DEV_MULTISIG = keccak256("DEV_MULTISIG");
 
-interface IChainLinkFeed {
-    function latestAnswer() external view returns (int256);
-}
 
-interface I_BancorFormula {
-    function calculatePurchaseReturn(uint256 _supply, uint256 _reserveBalance, uint32 _reserveWeight, uint256 _amount)
-    external view returns (uint256);
-
-    function calculateSaleReturn(uint256 _supply, uint256 _reserveBalance, uint32 _reserveWeight, uint256 _amount)
-    external view returns (uint256);
-
-}
-
-interface I_CRP {
-    function totalSupply() external view returns (uint);
-
-    function transfer(address dst, uint amt) external returns (bool);
-
-    function transferFrom(
-        address src, address dst, uint amt
-    ) external returns (bool);
-
-    function bPool() external view returns (address);
-
-    function joinswapExternAmountIn(
-        address tokenIn,
-        uint tokenAmountIn,
-        uint minPoolAmountOut
-    ) external returns (uint poolAmountOut);
-}
-
-interface I_BPool {
-
-    function MAX_IN_RATIO() external view returns (uint);
-
-    function getCurrentTokens() external view returns (address[] memory tokens);
-
-    function getDenormalizedWeight(address token) external view returns (uint);
-
-    function getTotalDenormalizedWeight() external view returns (uint);
-
-    function getBalance(address token) external view returns (uint);
-
-    function getSwapFee() external view returns (uint);
-
-    function calcPoolOutGivenSingleIn(
-        uint tokenBalanceIn,
-        uint tokenWeightIn,
-        uint poolSupply,
-        uint totalWeight,
-        uint tokenAmountIn,
-        uint swapFee
-    ) external pure returns (uint poolAmountOut);
-
-}
-
-contract Curve is ReentrancyGuard, Initializable {
-
-    address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
-    address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;
-    address public VESTING_MULTISIG_ADDR = address(0);  // TODO
-    address public HARVEST_MULTISIG_ADDR = address(0); // TODO
-
-    //
-    uint256 private DEV_PCT_TOKEN = 5 * 10 ** 16; // 5% to Dev Multisig as base asset  4/4/21
-    uint256 private DAO_PCT_ARRAY = 5 * 10 ** 16; // 5% to DAO multisig as array 4/4/21
-    uint256 private DAO_PCT_TOKEN = 20 * 10 ** 16;  //20% to DAO multisig as base entered asset 4/4/21
+    address private DAO_MULTISIG_ADDRESS = address(0xB60eF661cEdC835836896191EDB87CC025EFd0B7);
+    address private DEV_MULTISIG_ADDRESS = address(0x3c25c256E609f524bf8b35De7a517d5e883Ff81C);
     uint256 private PRECISION = 10 ** 18;
 
-    uint256 private MAX_SLIPPAGE = 2 * 10 ** 16;
+    uint256 private devPctToken;
+    uint256 private daoPctToken;
 
-    uint256 public MAX_ARRAY_SUPPLY = 100000 * PRECISION;
+    // maximum array tokens
 
     // Represents the 700k DAI spent for initial 10k tokens
     uint256 private STARTING_DAI_BALANCE = 700000 * PRECISION;
@@ -99,32 +45,17 @@ contract Curve is ReentrancyGuard, Initializable {
     // Keeps track of ARRAY minted for bonding bancor
     uint256 public virtualSupply;
 
-    // Keeps track of the max amount of ARRAY supply
-    uint256 public maxSupply = 100000 * PRECISION;
+    uint256 public maxSupply;
 
-    // Keeps track of DAI for team multisig
-    uint256 public devFundLPBalance;
-
-    // Keeps track of ARRAY for team multisig
-    uint256 public devFundArrayBalance;
-
-    // Keeps track of ARRAY for DAO multisig
-    uint256 public daoArrayBalance;
-
-    address public owner;
-    address public devFund;
-    address public gov;
     using EnumerableSet for EnumerableSet.AddressSet;
     EnumerableSet.AddressSet private virtualLpTokens;
 
-    IChainLinkFeed public constant FASTGAS = IChainLinkFeed(0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C);
-
     uint32 public reserveRatio;
 
-    I_ARRAY public ARRAY;
-    I_BancorFormula public CURVE;
-    I_CRP public CRP;
-    I_BPool public BP;
+    IArray public arrayToken;
+    ISmartPool public arraySmartPool;
+    IBPool public arrayBalancerPool;
+    IBancorFormula public bancorFormula;
 
     event Buy(
         address from,
@@ -134,121 +65,129 @@ contract Curve is ReentrancyGuard, Initializable {
         uint256 amountArrayMinted
     );
 
-    event Sell(address from, uint256 amountArray, uint256 amountLPTokenReturned);
-    event WithdrawDevFunds(address token, uint256 amount);
-    event WithdrawDaoFunds(uint256 amount);
+    event Sell(
+        address from,
+        uint256 amountArray,
+        uint256 amountLPTokenReturned
+    );
 
 
-    constructor(
-        address _owner,
-        address _gov,
+    function initialize(
         address _arrayToken,
-        address _curve,
         address _smartPool,
         address _bpool,
-        uint32 _cw
-    ) {
-        owner = _owner;
-        gov = _gov;
-        ARRAY = I_ARRAY(_arrayToken);
-        CURVE = I_BancorFormula(_curve);
-        CRP = I_CRP(_smartPool);
-        BP = I_BPool(_bpool);
-        reserveRatio = _cw;
-    }
+        uint32 _rr,
+        uint256 initialAmountLPToken
+    )
+    public initializer
+    {
+        devPctToken = 10 * 10 ** 16;
+        daoPctToken = 20 * 10 ** 16;
 
-    modifier validGasPrice() {
-        require(
-            tx.gasprice <= uint(FASTGAS.latestAnswer()),
-            "Must send equal to or lower than fast gas price to mitigate front running attacks."
-        );
-        _;
-    }
+        maxSupply = 100000 * PRECISION;
 
-    function initialize(uint256 initialAmountLPToken) public initializer {
-        require(msg.sender == owner, "!owner");
+        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _setupRole(DAO_MULTISIG, DAO_MULTISIG_ADDRESS);
+        _setupRole(DEV_MULTISIG, DEV_MULTISIG_ADDRESS);
+
+        maxSupply = 100000 * PRECISION;
+
+        arrayToken = IArray(_arrayToken);
+        arraySmartPool = ISmartPool(_smartPool);
+        arrayBalancerPool = IBPool(_bpool);
+        reserveRatio = _rr;
+        bancorFormula = IBancorFormula(0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a);
 
         // Send LP tokens from owner to balancer
-        require(CRP.transferFrom(owner, address(this), initialAmountLPToken), "Transfer failed");
+        require(arraySmartPool.transferFrom(msg.sender, address(this), initialAmountLPToken), "Transfer failed");
 
         // Mint ARRAY to CCO
-        ARRAY.mint(DAO_MULTISIG_ADDR, STARTING_ARRAY_MINTED);
+        arrayToken.mint(DAO_MULTISIG_ADDRESS, STARTING_ARRAY_MINTED);
 
         virtualBalance = initialAmountLPToken;
         virtualSupply = STARTING_ARRAY_MINTED;
     }
 
+    /*  @dev
+        @param token token address
+        @param amount quantity in Wei
+        @param slippage in percent, ie 2 means user accepts to receive 2% less than what is calculated
+        */
 
-    function buy(address token, uint256 amount) public nonReentrant validGasPrice returns (uint256 returnAmount) {
+
+    function buy(
+        address token,
+        uint256 amount,
+        uint256 slippage
+    )
+    public nonReentrant validGasPrice returns (uint256 returnAmount)
+    {
         IERC20 _token = IERC20(token);
 
-        require(this.isTokenInLP(token)); // dev: token not in part of collateral
-        require(this.isTokenInVirtualLP(token)); // dev: token not greenlisted
-        require(amount > 0); // dev: amount is 0
-        require(_token.allowance(msg.sender, address(this)) >= amount); // dev: user allowance < amount
-        require(_token.balanceOf(msg.sender) >= amount);  // dev: user balance < amount
+        require(this.isTokenInLP(token), 'token not in lp');
+        require(this.isTokenInVirtualLP(token), 'token not greenlisted');
+        require(amount > 0, 'amount is 0');
+        require(_token.allowance(msg.sender, address(this)) >= amount, 'user allowance < amount');
+        require(_token.balanceOf(msg.sender) >= amount, 'user balance < amount');
 
-        uint256 max_in_balance = (BP.getBalance(token) / 2) +  5; require(amount <= max_in_balance);  // dev: ratio in to high
+        uint256 max_in_balance = (arrayBalancerPool.getBalance(token) / 2) + 5;
+        require(amount <= max_in_balance, 'ratio in too high');
 
-        require(_token.transferFrom(msg.sender, address(this), amount)); // dev: transfer to contract failed"
-        require(_token.balanceOf(address(this)) >= amount); // dev: contract did not receive enough token
+        require(_token.transferFrom(msg.sender, address(this), amount), 'transfer from user to contract failed');
+        require(_token.balanceOf(address(this)) >= amount, 'contract did not receive enough token');
 
-        // 20% goes to DAO MultiSig in original token
-        uint256 amountTokensForDAOMultiSig = amount * DAO_PCT_TOKEN / PRECISION;
-        require(_token.transfer(DAO_MULTISIG_ADDR, amountTokensForDAOMultiSig), "transfer to DAO Multisig failed");
+        uint256 amountTokensForDAOMultiSig = amount * daoPctToken / PRECISION;
+        require(_token.transfer(DAO_MULTISIG_ADDRESS, amountTokensForDAOMultiSig), "transfer to DAO Multisig failed");
 
-        // 5% goes to Dev MultiSig in original token
-        uint256 amountTokensForDEVMultiSig = amount * DEV_PCT_TOKEN / PRECISION;
-        require(_token.transfer(DEV_MULTISIG_ADDR, amountTokensForDEVMultiSig), "transfer to DEV Multisig failed");
+        uint256 amountTokensForDEVMultiSig = amount * devPctToken / PRECISION;
+        require(_token.transfer(DEV_MULTISIG_ADDRESS, amountTokensForDEVMultiSig), "transfer to DEV Multisig failed");
 
         // what's left will be used to get LP tokens
         uint256 amountTokensForLP = amount - amountTokensForDAOMultiSig - amountTokensForDEVMultiSig;
 
-        require(_token.approve(address(CRP), amountTokensForLP), "token approve for contract to balancer pool failed");
+        require(_token.approve(address(arraySmartPool), amountTokensForLP), "token approve for contract to balancer pool failed");
 
         // calculate the estimated LP tokens that we'd get and then adjust for slippage to have minimum
         uint256 maxLpTokenAmount = _calculateLPTokensGivenERC20Tokens(token, amountTokensForLP);
-        uint256 minLpTokenAmount = maxLpTokenAmount * MAX_SLIPPAGE / PRECISION;
+        uint256 minLpTokenAmount = maxLpTokenAmount * slippage * 10 ** 6 / PRECISION;
 
 
         // send the pool the left over tokens for LP, expecting minimum return
-        uint256 lpTokenAmount = CRP.joinswapExternAmountIn(address(_token), amountTokensForLP, 0);
+        uint256 lpTokenAmount = arraySmartPool.joinswapExternAmountIn(address(_token), amountTokensForLP, minLpTokenAmount);
 
         // calculate how many array tokens correspond to the LP tokens that we got
         uint256 amountArrayToMint = _calculateArrayGivenLPTokenAMount(lpTokenAmount);
-        require(amountArrayToMint + virtualSupply <= maxSupply);
-        // dev: minted array > total supply
+        require(amountArrayToMint + virtualSupply <= maxSupply, 'minted array > total supply');
 
-        // take off the cut for the multisig
-        uint256 amountArrayForDAOMultisig = amountArrayToMint * DAO_PCT_ARRAY / PRECISION;
-        ARRAY.mint(DAO_MULTISIG_ADDR, amountArrayForDAOMultisig);
-
-        // rest goes to user
-        uint256 amountArrayForUser = amountArrayToMint - amountArrayForDAOMultisig;
-        ARRAY.mint(msg.sender, amountArrayForUser);
+        arrayToken.mint(msg.sender, amountArrayToMint);
 
         // update virtual balance and supply
         virtualBalance = virtualBalance + lpTokenAmount;
         virtualSupply = virtualSupply + amountArrayToMint;
 
-        emit Buy(msg.sender, token, amount, lpTokenAmount, amountArrayForUser);
-        return returnAmount = amountArrayForUser;
+        emit Buy(msg.sender, token, amount, lpTokenAmount, amountArrayToMint);
+        return returnAmount = amountArrayToMint;
     }
 
+    // @dev user has either checked that he want's to sell all his tokens, in which the field to specify how much he
+    //      wants to sell should be greyed out and empty and this function will be called with the signature
+    //      of a single boolean set to true or it will revert. If they only sell a partial amount the function
+    //      will be called with the signature uin256.
 
     function sell(uint256 amountArray) public nonReentrant validGasPrice returns (uint256 returnAmount) {
         returnAmount = _sell(amountArray);
     }
 
     function sell(bool max) public nonReentrant returns (uint256 returnAmount) {
-        uint256 amountArray = ARRAY.balanceOf(msg.sender);
+        require(max, 'sell function not called correctly');
+
+        uint256 amountArray = arrayToken.balanceOf(msg.sender);
         returnAmount = _sell(amountArray);
     }
 
     function _sell(uint256 amountArray) internal returns (uint256 returnAmount) {
 
-        require(amountArray <= ARRAY.balanceOf(msg.sender));
-        // dev: user balance < amount
+        require(amountArray <= arrayToken.balanceOf(msg.sender), 'user balance < amount');
 
         // get total supply of array token, subtract amount burned
         uint256 amountArrayAfterBurn = virtualSupply - amountArray;
@@ -257,11 +196,10 @@ contract Curve is ReentrancyGuard, Initializable {
         uint256 amountLPTokenReturned = calculateLPtokensGivenArrayTokens(amountArray);
 
         // burn token
-        ARRAY.burn(msg.sender, amountArray);
+        arrayToken.burn(msg.sender, amountArray);
 
         // send to user
-        require(CRP.transfer(msg.sender, amountLPTokenReturned));
-        // dev: transfer of lp token to user failed
+        require(arraySmartPool.transfer(msg.sender, amountLPTokenReturned), 'transfer of lp token to user failed');
 
         // update virtual balance and supply
         virtualBalance = virtualBalance - amountLPTokenReturned;
@@ -275,28 +213,24 @@ contract Curve is ReentrancyGuard, Initializable {
     function calculateArrayTokensGivenERC20Tokens(address token, uint256 amount) public view returns
     (uint256 amountArrayForUser)
     {
-        require(this.isTokenInVirtualLP(token));
-        // dev: token not in virtual LP
-        require(this.isTokenInLP(token));
-        // dev: token not in balancer LP
+        require(this.isTokenInVirtualLP(token), 'token not in virtual LP');
+        require(this.isTokenInLP(token), 'token not in balancer LP');
 
-        uint256 amountTokensForDAOMultiSig = amount * DAO_PCT_TOKEN / PRECISION;
-        uint256 amountTokensForDEVMultiSig = amount * DEV_PCT_TOKEN / PRECISION;
+        uint256 amountTokensForDAOMultiSig = amount * daoPctToken / PRECISION;
+        uint256 amountTokensForDEVMultiSig = amount * devPctToken / PRECISION;
         uint256 amountTokensForLP = amount - amountTokensForDAOMultiSig - amountTokensForDEVMultiSig;
 
         uint256 maxLpTokenAmount = _calculateLPTokensGivenERC20Tokens(token, amountTokensForLP);
         uint256 amountArrayToMint = _calculateArrayGivenLPTokenAMount(maxLpTokenAmount);
 
-        uint256 amountArrayForDAOMultisig = amountArrayToMint * DAO_PCT_ARRAY / PRECISION;
-
-        return amountArrayForUser = amountArrayToMint - amountArrayForDAOMultisig;
+        return amountArrayToMint;
     }
 
-    function calculateLPtokensGivenArrayTokens(uint256 amount) public returns (uint256 amountLPToken)
+    function calculateLPtokensGivenArrayTokens(uint256 amount) public view returns (uint256 amountLPToken)
     {
 
         // Calculate quantity of ARRAY minted based on total LP tokens
-        return amountLPToken = CURVE.calculateSaleReturn(
+        return amountLPToken = bancorFormula.saleTargetAmount(
             virtualSupply,
             virtualBalance,
             reserveRatio,
@@ -308,19 +242,19 @@ contract Curve is ReentrancyGuard, Initializable {
     function _calculateLPTokensGivenERC20Tokens(address token, uint256 amount) private view returns (uint256 amountLPToken)
     {
 
-        uint256 weight = BP.getDenormalizedWeight(token);
-        uint256 totalWeight = BP.getTotalDenormalizedWeight();
-        uint256 balance = BP.getBalance(token);
-        uint256 fee = BP.getSwapFee();
-        uint256 supply = CRP.totalSupply();
+        uint256 weight = arrayBalancerPool.getDenormalizedWeight(token);
+        uint256 totalWeight = arrayBalancerPool.getTotalDenormalizedWeight();
+        uint256 balance = arrayBalancerPool.getBalance(token);
+        uint256 fee = arrayBalancerPool.getSwapFee();
+        uint256 supply = arraySmartPool.totalSupply();
 
-        return BP.calcPoolOutGivenSingleIn(balance, weight, supply, totalWeight, amount, fee);
+        return arrayBalancerPool.calcPoolOutGivenSingleIn(balance, weight, supply, totalWeight, amount, fee);
     }
 
     function _calculateArrayGivenLPTokenAMount(uint256 amount) private view returns (uint256 amountArrayToken)
     {
         // Calculate quantity of ARRAY minted based on total LP tokens
-        return amountArrayToken = CURVE.calculatePurchaseReturn(
+        return amountArrayToken = bancorFormula.purchaseTargetAmount(
             virtualSupply,
             virtualBalance,
             reserveRatio,
@@ -335,7 +269,7 @@ contract Curve is ReentrancyGuard, Initializable {
 */
 
     function isTokenInLP(address token) external view returns (bool) {
-        address[] memory lpTokens = BP.getCurrentTokens();
+        address[] memory lpTokens = arrayBalancerPool.getCurrentTokens();
         for (uint256 i = 0; i < lpTokens.length; i++) {
             if (token == lpTokens[i]) {
                 return true;
@@ -355,17 +289,34 @@ contract Curve is ReentrancyGuard, Initializable {
     }
 
     function addTokenToVirtualLP(address token) public returns (bool success){
-        require(msg.sender == gov, "msg.sender != gov");
+        require(hasRole(DAO_MULTISIG,msg.sender), 'wrong role');
         require(this.isTokenInLP(token), "Token not in Balancer LP");
 
         return success = virtualLpTokens.add(token);
     }
 
     function removeTokenFromVirtualLP(address token) public returns (bool success) {
-        require(msg.sender == gov, "msg.sender != gov");
+        require(hasRole(DAO_MULTISIG, msg.sender), 'wrong role');
         require(this.isTokenInVirtualLP(token), "Token not in Virtual LP");
 
         return success = virtualLpTokens.remove(token);
     }
 
+    function setDaoPct(uint256 amount) public returns (bool success) {
+        require(hasRole(DAO_MULTISIG, msg.sender), 'wrong role');
+        devPctToken = amount;
+        success = true;
+    }
+
+    function setDevPct(uint256 amount) public returns (bool success) {
+        require(hasRole(DAO_MULTISIG, msg.sender), 'wrong role');
+        devPctToken = amount;
+        success = true;
+    }
+
+    function setMaxSupply(uint256 amount) public returns (bool success) {
+        require(hasRole(DAO_MULTISIG, msg.sender), 'wrong role');
+        maxSupply = amount;
+        success = true;
+    }
 }

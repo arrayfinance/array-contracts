@@ -8,7 +8,7 @@ pragma solidity ^0.8.0;
  * bancor formula by bancor
  * https://github.com/bancorprotocol/contracts
  * Modified from the original by Slava Balasanov
- * Split Power.sol out from BancorFormula.sol
+ * Split _Power.sol out from _BancorFormula.sol
  * Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements;
  * and to You under the Apache License, Version 2.0. "
  */

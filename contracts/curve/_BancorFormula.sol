@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.0;
-import "./Power.sol";
+import "./_Power.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /**
  * @title Bancor formula by Bancor
  * @dev Modified from the original by Slava Balasanov
  * https://github.com/bancorprotocol/contracts
- * Split Power.sol out from BancorFormula.sol and replace SafeMath formulas with zeppelin's SafeMath
+ * Split _Power.sol out from _BancorFormula.sol and replace SafeMath formulas with zeppelin's SafeMath
  * Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements;
  * and to You under the Apache License, Version 2.0. "
  */

@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";

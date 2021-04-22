@@ -11,7 +11,7 @@ def unlock_account(address: str) -> None:
 
 
 class Deployer:
-    from brownie import interface, ArrayToken, BancorFormula, Curve, accounts, ArrayToken, BancorFormula, Curve, interface, ZERO_ADDRESS, chain, web3
+    from brownie import interface, ArrayToken, Curve, accounts, ArrayToken, Curve, interface, ZERO_ADDRESS, chain, web3
 
     POOL_VALUE = 700_000
 
@@ -89,7 +89,8 @@ class Deployer:
             }
         )
 
-        self.me = self.accounts[9]
+        # dao multisig addy
+        self.me = self.accounts.at('0xB60eF661cEdC835836896191EDB87CC025EFd0B7', force=True)
         self.accounts.default = self.me
 
         self.calc_collateral(n)
@@ -141,17 +142,12 @@ class Deployer:
 
     def setup(self):
         self._deploy_array_token()
-        self._deploy_bancor_formula()
         self._deploy_pool()
         self._deploy_bpool()
 
     def _deploy_array_token(self):
         self.accounts.default = self.me
-        self.array = self.ArrayToken.deploy('ArrayToken', 'ARRAY', self.ZERO_ADDRESS)
-
-    def _deploy_bancor_formula(self):
-        self.accounts.default = self.me
-        self.bancor = self.BancorFormula.deploy()
+        self.array = self.ArrayToken.deploy('ArrayToken', 'ARRAY')
 
     def _deploy_pool(self):
         pool_params = ['ARRAYLP', 'Array LP', [self.tokens[k] for k in self.tokens], [self.in_balances[k] for k in self.tokens],
@@ -175,16 +171,18 @@ class Deployer:
         self.bpool = self.interface.bpool(self.pool.bPool())
 
     def deploy_curve(self):
-        self.balance = self.balance
         self.accounts.default = self.me
-        self.crv = self.Curve.deploy(self.me, self.me, self.array,
-                                     self.bancor, self.pool, self.bpool, self.cw)
+        self.balance = self.balance
+        self.crv = self.Curve.deploy()
 
+    def initialize_curve(self):
+        self.accounts.default = self.me
         self.pool.approve(self.crv, self.balance)
         self.array.grantRole(self.array.MINTER_ROLE(), self.crv)
         self.array.grantRole(self.array.BURNER_ROLE(), self.crv)
 
-        self.crv.initialize(self.balance)
+        self.crv.initialize(self.array, self.pool, self.bpool, self.cw, self.balance)
+
         for k in self.tokens:
             self.tokens[k].approve(self.crv, 2 ** 256 - 1)
         for k in self.tokens:
@@ -275,7 +273,10 @@ def main():
     d = Deployer(float(n))
     d.setup()
     d.deploy_curve()
-    d.get_curve_data()
+    d.initialize_curve()
 
-    print(f'm = {d.get_crv_m()})')
-    print(f'n = {d.get_crv_n()}')
+# d.get_curve_data()
+#
+# print(f'm = {d.get_crv_m()})')
+# print(f'n = {d.get_crv_n()}')
+#

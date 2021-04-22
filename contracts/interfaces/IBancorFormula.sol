@@ -1,19 +1,58 @@
 // SPDX-License-Identifier: MIT
 
-
 pragma solidity ^0.8.0;
 
 interface IBancorFormula {
-    function calculatePurchaseReturn(
+    function purchaseTargetAmount(
         uint256 _supply,
-        uint256 _connectorBalance,
-        uint32 _connectorWeight,
-        uint256 _depositAmount) external returns (uint256);
+        uint256 _reserveBalance,
+        uint32 _reserveWeight,
+        uint256 _amount
+    ) external view returns (uint256);
 
-    function calculateSaleReturn(
+    function saleTargetAmount(
         uint256 _supply,
-        uint256 _connectorBalance,
-        uint32 _connectorWeight,
-        uint256 _sellAmount) external returns (uint256);
+        uint256 _reserveBalance,
+        uint32 _reserveWeight,
+        uint256 _amount
+    ) external view returns (uint256);
+
+    function crossReserveTargetAmount(
+        uint256 _sourceReserveBalance,
+        uint32 _sourceReserveWeight,
+        uint256 _targetReserveBalance,
+        uint32 _targetReserveWeight,
+        uint256 _amount
+    ) external view returns (uint256);
+
+    function fundCost(
+        uint256 _supply,
+        uint256 _reserveBalance,
+        uint32 _reserveRatio,
+        uint256 _amount
+    ) external view returns (uint256);
+
+    function fundSupplyAmount(
+        uint256 _supply,
+        uint256 _reserveBalance,
+        uint32 _reserveRatio,
+        uint256 _amount
+    ) external view returns (uint256);
+
+    function liquidateReserveAmount(
+        uint256 _supply,
+        uint256 _reserveBalance,
+        uint32 _reserveRatio,
+        uint256 _amount
+    ) external view returns (uint256);
+
+    function balancedWeights(
+        uint256 _primaryReserveStakedBalance,
+        uint256 _primaryReserveBalance,
+        uint256 _secondaryReserveBalance,
+        uint256 _reserveRateNumerator,
+        uint256 _reserveRateDenominator
+    ) external view returns (uint32, uint32);
 }
+
 
