@@ -81,5 +81,5 @@ jobs:
       run: pip install -r requirements.txt
 
     - name: run tests
-      run: brownie test -v -G -C -s
+      run: brownie test --disable-warnings -v -s
 
