@@ -6,10 +6,6 @@ from sigfig import round
 from dotenv import load_dotenv
 
 
-def unlock_account(address: str) -> None:
-    web3.provider.make_request("hardhat_impersonateAccount", [address])
-
-
 class Deployer:
     from brownie import interface, ArrayToken, Curve, accounts, ArrayToken, Curve, interface, ZERO_ADDRESS, chain, web3
 
@@ -94,7 +90,7 @@ class Deployer:
         self.accounts.default = self.me
 
         self.calc_collateral(n)
-
+        self.filename = f'data{n}.csv'
         for k, v in self.tokens.items():
             w = self.whales[k]
             b = v.balanceOf(w)
@@ -150,7 +146,8 @@ class Deployer:
         self.array = self.ArrayToken.deploy('ArrayToken', 'ARRAY')
 
     def _deploy_pool(self):
-        pool_params = ['ARRAYLP', 'Array LP', [self.tokens[k] for k in self.tokens], [self.in_balances[k] for k in self.tokens],
+        pool_params = ['ARRAYLP', 'Array LP', [self.tokens[k] for k in self.tokens],
+                       [self.in_balances[k] for k in self.tokens],
                        [self.weights[k] * 1e19 for k in self.weights], 1e14]
 
         pool_rights = [True, True, True, True, False, True]
@@ -213,7 +210,7 @@ class Deployer:
         konsole = Console()
         start_time = int(time.time())
         counter = 0
-        with open("data.csv", "wt") as report_file:
+        with open(f"data{self.cw}.csv", "wt") as report_file:
             console = Console(file=report_file)
             console.print('supply,price')
 
@@ -221,11 +218,9 @@ class Deployer:
             l = []
 
             tokens_ = self.tokens
-            while counter < 21:
+            while counter < 31:
                 for k in tokens_:
                     v = tokens_[k]
-                    print(v)
-                    print(tokens_)
                     dec = v.decimals()
 
                     buy = 50000 * 10 ** dec / self.dai_prices[k]
@@ -234,7 +229,7 @@ class Deployer:
                     if v.balanceOf(self.me) <= buy or buy >= self.bpool.getBalance(v.address) / 2 - 100:
                         tokens_.pop(k)
                         continue
-                    tx = self.crv.buy(v.address, int(buy))
+                    tx = self.crv.buy(v.address, int(buy), 2)
 
                     if tx.return_value:
                         purchase = tx.return_value / 1e18
@@ -244,7 +239,8 @@ class Deployer:
                         if k == 'dai':
                             counter = counter + 1;
                             konsole_supply = int(self.get_crv_supply() / 1e18)
-                            konsole.rule(title=f'[red]{t:.2f} minutes, [blue] supply = {konsole_supply}, [yellow] price = {price_in_dai}')
+                            konsole.rule(
+                                title=f'[red]{t:.2f} minutes, [blue] supply = {konsole_supply}, [yellow] price = {price_in_dai}')
                             console.print(f'{sp:.2f},{price_in_dai:.2f}')
                             l.append({'supply': int(sp), 'price': float(price_in_dai)})
 
@@ -255,7 +251,7 @@ class Deployer:
         balance = m * (cw * float(10000) ** (1 / cw))
         balance = balance
 
-        self.balance = 3.437 * balance * 1e18
+        self.balance = balance * 1e18
         self.cw = int(round(cw * 1e6, 6))
 
     def pool_in(self, factor):
@@ -268,12 +264,15 @@ class Deployer:
 
 
 def main():
-    load_dotenv()
-    n = os.getenv('EXPONENT')
-    d = Deployer(float(n))
-    d.setup()
-    d.deploy_curve()
-    d.initialize_curve()
+    # load_dotenv()
+    # n = os.getenv('EXPONENT')
+    for i in range(4, 20, 1):
+        i = i / 10
+        d = Deployer(float(i))
+        d.setup()
+        d.deploy_curve()
+        d.initialize_curve()
+        d.get_curve_data()
 
 # d.get_curve_data()
 #

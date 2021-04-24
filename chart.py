@@ -13,9 +13,6 @@ def func(x, a, b):
     return a * x ** b
 
 
-m = 7.550247718452775e-06
-exp = 1.6000026000026
-
 df = pd.read_csv('data.csv')
 xdata = df.supply
 ydata = df.price
@@ -23,7 +20,8 @@ popt, pcov = curve_fit(func, xdata, ydata)
 
 l = []
 for i in range(10000, 101000, 1000):
-    l.append({'supply': i, 'price': int(func(i, *popt))})
+    l.append(
+        {'supply': i, 'price': int(func(i, *popt)), 'total': int(integrate.quad(func, 0, i, args=(popt[0], popt[1]))[0])})
 
 df = pd.DataFrame(l)
 
@@ -42,7 +40,6 @@ fig = go.Figure(go.Scatter(x=df.supply, y=df.price), layout={
 
 app.layout = html.Div(children=[
 
-    html.H6(children=f'input formula: y = {round(m, 4)} * x ** {round(exp, 4)}'),
     html.H6(children=f'adjusted formula: y = {round(float(popt[0]), 4)} * x ** {round(float(popt[1]), 4)}'),
     html.H6(children=f'price increases  by {b / a:.3f} for every doubling of supply'),
     html.H6(children=f'max. market cap (100k supply) = ${result:,.0f} DAI'),
@@ -68,5 +65,4 @@ app.layout = html.Div(children=[
 )
 
 if __name__ == '__main__':
-
     app.run_server(debug=True)
