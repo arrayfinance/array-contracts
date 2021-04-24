@@ -206,11 +206,11 @@ class Deployer:
         n = self.get_crv_n()
         return m * at ** n
 
-    def get_curve_data(self):
+    def get_curve_data(self, name):
         konsole = Console()
         start_time = int(time.time())
         counter = 0
-        with open(f"data{self.cw}.csv", "wt") as report_file:
+        with open(f"data_{self.cw}.csv", "wt") as report_file:
             console = Console(file=report_file)
             console.print('supply,price')
 
@@ -249,7 +249,7 @@ class Deployer:
         cw = 1 / (1 + n)
         m = 100 / (10000 ** n)
         balance = m * (cw * float(10000) ** (1 / cw))
-        balance = balance
+        balance = 0.6 * balance
 
         self.balance = balance * 1e18
         self.cw = int(round(cw * 1e6, 6))
@@ -264,18 +264,10 @@ class Deployer:
 
 
 def main():
-    # load_dotenv()
-    # n = os.getenv('EXPONENT')
     for i in range(4, 20, 1):
         i = i / 10
         d = Deployer(float(i))
         d.setup()
         d.deploy_curve()
         d.initialize_curve()
-        d.get_curve_data()
-
-# d.get_curve_data()
-#
-# print(f'm = {d.get_crv_m()})')
-# print(f'n = {d.get_crv_n()}')
-#
+        d.get_curve_data(i)
