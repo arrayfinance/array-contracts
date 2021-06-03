@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Unlicense
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -14,7 +14,6 @@ contract ArrayToken is Context, AccessControl, ERC20 {
     ERC20(name, symbol)
 
     {
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _setupRole(MINTER_ROLE, address(0));
         _setupRole(BURNER_ROLE, address(0));
     }

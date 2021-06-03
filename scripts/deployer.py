@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 
 
 class Deployer:
-    from brownie import interface, ArrayToken, Curve, accounts, ArrayToken, Curve, interface, ZERO_ADDRESS, chain, web3
+    from brownie import interface, rpc, ArrayToken, Curve, accounts, ArrayToken, Curve, interface, ZERO_ADDRESS, chain, \
+        web3
 
     POOL_VALUE = 700_000
 
@@ -22,7 +23,7 @@ class Deployer:
     def __init__(self, n=1.6):
 
         for a in self.accounts_to_unlock:
-            self.web3.provider.make_request("hardhat_impersonateAccount", [a])
+            self.rpc.unlock_account(a)
 
         self.whales = DotMap({
             'dai': self.accounts.at('0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503', force=True),
