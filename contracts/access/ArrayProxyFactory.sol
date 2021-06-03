@@ -1,13 +1,13 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Unlicense
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /** @title Array proxy factory. */
-contract ArrayFactory is Ownable {
+contract ArrayProxyFactory is Ownable {
     event ProxyCreated(address proxyAddress);
 
         /**
@@ -19,9 +19,11 @@ contract ArrayFactory is Ownable {
         @return proxyAddress the address of the proxy we deployed.
       */
 
+
     function deployProxy(address proxyAdminAddress, address implementationAddress, bytes memory initializationCode)
     public
-    onlyOwner returns (address proxyAddress){
+    onlyOwner
+    returns (address proxyAddress){
 
         require(Address.isContract(implementationAddress)); // dev: implementation must be contract
         require(Address.isContract(proxyAdminAddress)); // dev: proxyAdmin must be contract

@@ -253,7 +253,7 @@ class StateMachine:
 
     def invariant(self):
 
-        # slope of the curve should not be changed, ie ratio of virtual supply to virtual balance should be
+        # slope of the _curve should not be changed, ie ratio of virtual supply to virtual balance should be
         # as predicted by bancor formula
 
         coin_symbol = self.coin.symbol()
@@ -291,7 +291,7 @@ def test_price(curve, user, tokens, interface):
     plt.figure()
     df.plot(x='supply', y='price')
     plt.show()
-# def test_stateful(state_machine, curve, user, tokens, array, dao, dev, crp, bpt):
+# def test_stateful(state_machine, _curve, user, tokens, array, dao, dev, crp, bpt):
 #     console.clear(home=True)
 #     console.log('\n Starting..')
-#     state_machine(StateMachine, curve, user, tokens, array, dao, dev, crp, bpt)
+#     state_machine(StateMachine, _curve, user, tokens, array, dao, dev, crp, bpt)
