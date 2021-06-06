@@ -4,14 +4,13 @@ import brownie
 from dotmap import DotMap
 from brownie import *
 
+
 @pytest.fixture(scope='module')
-def d():
+def pool():
     from scripts.deployer import Deployer
     d = Deployer()
     d.setup()
-    d.deploy_curve()
-    d.initialize_curve()
-    yield d
+    yield d.pool
 
 
 @pytest.fixture(autouse=True)
@@ -19,37 +18,12 @@ def isolation(fn_isolation):
     pass
 
 
-def test_revert_already_initialized_curve(d):
-    with brownie.reverts('Initializable: contract is already initialized'):
-        d.crv.initialize(d.array, d.pool, d.bpool, d.cw, d.balance, {'from': d.me})
-
-
-# add, check for, and remove tokens to the virtual registry which inherits from oz's
-# enumerable set
-def test_add_remove_virtual_lp(d, accounts):
-    accounts.default = d.me
-    dai = d.tokens.dai
-    weth = d.tokens.weth
-    wbtc = d.tokens.wbtc
-
-    assert not d.crv.isTokenInVirtualLP(ZERO_ADDRESS)
-
-    assert d.crv.isTokenInVirtualLP(dai.address)
-    assert d.crv.isTokenInVirtualLP(weth.address)
-    assert d.crv.isTokenInVirtualLP(wbtc.address)
-
-    assert d.crv.removeTokenFromVirtualLP(dai.address)
-    assert d.crv.removeTokenFromVirtualLP(weth.address)
-    assert d.crv.removeTokenFromVirtualLP(wbtc.address)
-
-
 # check if our pre-calc for array is rightk
-def test_correct_calc_estimation(d, accounts):
-    accounts.default = d.me
-    dai = d.tokens.dai
+def test_correct_calc_estimation(dai, accounts):
+    accounts.default = governance
     amount = 1000 * 1e18
 
-    dai.approve(d.crv, amount)
+    dai.approve(, amount)
     calc = d.crv.calculateArrayTokensGivenERC20Tokens(dai, amount)
     tx = d.crv.buy(dai, amount, 2)
 

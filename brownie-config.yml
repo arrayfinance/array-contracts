@@ -5,7 +5,7 @@ networks:
   host: http://127.0.0.1
   cmd: ganache-cli
   cmd_settings:
-    fork: http://192.168.1.16:9545
+    fork: http://192.168.1.191:9545
     gas_limit: 10000000
     port: 8545
     accounts: 10
@@ -25,17 +25,27 @@ autofetch_sources: True
 
 # require OpenZepplin Contracts
 dependencies:
-  - OpenZeppelin/openzeppelin-contracts@4.0.0
+  - OpenZeppelin/openzeppelin-contracts@4.1.0
+  - OpenZeppelin/openzeppelin-contracts-upgradeable@4.1.0
 
 compiler:
   solc:
-    version: 0.8.0
+    version: null
     remappings:
-      - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.0.0"
+      - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.1.0"
+      - "@openzeppelinupgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.1.0"
 
 hypothesis:
-  max_examples: 100
+  deadline: null
+  max_examples: 25
+  report_multiple_bugs: False
   stateful_step_count: 10
+  phases:
+    explicit: true
+    reuse: true
+    generate: true
+    target: true
+    shrink: true
 
 reports:
   exclude_contracts:

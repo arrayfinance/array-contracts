@@ -9,7 +9,7 @@ class StateMachine:
     value = strategy('uint', min_value=1, max_value=99)
 
     def __init__(cls, d):
-        # initialize curve contract
+        # initialize _curve contract
         cls.d = d
         cls.d.initialize_curve()
 
