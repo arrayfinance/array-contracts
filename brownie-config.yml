@@ -1,11 +1,6 @@
 networks:
-  default: geth-node
-  name: Ganache-CLI (Geth Mainnet Fork)
-  id: geth-node
-  host: http://127.0.0.1
-  cmd: ganache-cli
+  default: mainnet-fork
   cmd_settings:
-    fork: http://192.168.1.191:9545
     gas_limit: 10000000
     port: 8545
     accounts: 10
