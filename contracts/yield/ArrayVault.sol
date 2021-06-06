@@ -6,11 +6,13 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts/utils/AddressUpgradeable.sol";
-import "@openzeppelin/contracts/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/ContextUpgradeable.sol";
 import "@openzeppelin/contracts/utils/math/MathUpgradeable.sol";
 
 import "../interfaces/IArrayStrategy.sol";
+import "../access/ArrayRolesStorage.sol";
+
 
 /**
  * @notice PROXIED, CHANGING ORDER/TYPE OF STORAGE VARIABLES WILL BREAK THINGS IF IMPLEMENTING IN SAME PROXY
@@ -20,10 +22,10 @@ import "../interfaces/IArrayStrategy.sol";
  * to move in the opposite direction' - Albert Einstein.
  **/
 
-contract ArrayVault is ERC20Upgradeable {
+contract ArrayVault is ERC20Upgradeable, ArrayRolesStorage, OwnableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
     using AddressUpgradeable for address;
-    IAccessControlUpgradeable public roles;
+    //    IAccessControlUpgradeable public roles;
 
     event Withdraw(address indexed beneficiary, uint256 amount);
     event Deposit(address indexed beneficiary, uint256 amount);
@@ -42,20 +44,7 @@ contract ArrayVault is ERC20Upgradeable {
     uint256 public toInvestDenominator; // leave me be
     uint256 public precision = 10 ** 18;
 
-    modifier onlyDev() {
-        require(roles.hasRole(keccak256('DEVELOPER'), msg.sender));
-        _;
-    }
 
-    modifier onlyGov() {
-        require(roles.hasRole(keccak256('GOVERNANCE'), msg.sender));
-        _;
-    }
-
-    modifier onlyStrategyTimelock() {
-        require(roles.hasRole(keccak256('STRATEGY_TIMELOCK'), msg.sender));
-        _;
-    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /*********************/
@@ -68,8 +57,6 @@ contract ArrayVault is ERC20Upgradeable {
         address _roles,
         address _underlying,
         address _strategy,
-        address _governance,
-        address _timelock,
         uint256 _toInvestNumerator,
         uint256 _toInvestDenominator
     )
@@ -85,19 +72,21 @@ contract ArrayVault is ERC20Upgradeable {
         require(AddressUpgradeable.isContract(_underlying));
         // dev: underlying must be contract
         require(AddressUpgradeable.isContract(_roles));
+        // dev: roles must be contract
         require(AddressUpgradeable.isContract(_strategy));
         // dev: strategy must be contract
-        require(AddressUpgradeable.isContract(_governance));
-        // dev: governance shouldn't be EOA
-        require(AddressUpgradeable.isContract(_timelock));
-        // dev: timelock must be contract
+
+        ArrayRolesStorage.initialize(_roles);
+
+        __Context_init_unchained();
+        __Ownable_init_unchained();
 
         // set storage
-        roles = IAccessControlUpgradeable(_roles);
         underlying = _underlying;
         strategy = _strategy;
         toinvestNumerator = _toInvestNumerator;
         toInvestDenominator = _toInvestDenominator;
+
 
         // set up erc20 contract of vault
         __ERC20_init
@@ -105,7 +94,6 @@ contract ArrayVault is ERC20Upgradeable {
             string(abi.encodePacked("array_", ERC20Upgradeable(_underlying).symbol())),
             string(abi.encodePacked("a_", ERC20Upgradeable(_underlying).symbol()))
         );
-
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -132,7 +120,6 @@ contract ArrayVault is ERC20Upgradeable {
         if (address(strategy) == address(0))
         {
             return underlyingBalanceInVault();
-            // no strategy yet
         }
         return underlyingBalanceInVault() + IArrayStrategy(strategy).investedUnderlyingBalance();
     }
@@ -144,9 +131,11 @@ contract ArrayVault is ERC20Upgradeable {
     view
     returns (uint256)
     {
-        return totalSupply() == 0
-        ? precision
-        : precision * (underlyingBalanceWithInvestment() / totalSupply());
+        if (totalSupply() == 0) {
+            return precision;
+        } else {
+            return precision * underlyingBalanceWithInvestment() / totalSupply();
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -160,14 +149,14 @@ contract ArrayVault is ERC20Upgradeable {
         {
             return 0;
         }
-        return underlyingBalanceWithInvestment() * (balanceOf(holder)) / (totalSupply());
+        return underlyingBalanceWithInvestment() * balanceOf(holder) / totalSupply();
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     function rebalance()
     external
-    onlyDev()
+    onlyDev
     {
         withdrawAll();
         invest();
@@ -182,7 +171,7 @@ contract ArrayVault is ERC20Upgradeable {
     view
     returns (uint256) {
 
-        uint256 wantInvestInTotal = underlyingBalanceWithInvestment() * (toinvestNumerator / toInvestDenominator);
+        uint256 wantInvestInTotal = underlyingBalanceWithInvestment() * toinvestNumerator / toInvestDenominator;
         uint256 alreadyInvested = IArrayStrategy(strategy).investedUnderlyingBalance();
 
         if (alreadyInvested >= wantInvestInTotal)
@@ -200,7 +189,7 @@ contract ArrayVault is ERC20Upgradeable {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     function doStuff()
-    onlyDev()
+    onlyDev
     external
     {
         invest();
@@ -225,14 +214,14 @@ contract ArrayVault is ERC20Upgradeable {
     // come home boys
     function withdrawAll()
     public
-    onlyDev()
+    onlyDev
     {
         IArrayStrategy(strategy).withdrawAllToVault();
     }
 
     function setStrategy(address _strategy)
     public
-    onlyStrategyTimelock()
+    onlyTimelock
     {
         require(_strategy != address(0), "new _strategy cannot be empty");
         require(IArrayStrategy(_strategy).underlying() == address(underlying), "Vault underlying must match Strategy underlying");
@@ -272,9 +261,12 @@ contract ArrayVault is ERC20Upgradeable {
 
     function _deposit(uint256 amount, address sender, address beneficiary) internal {
 
-        require(amount > 0); // dev: Cannot deposit 0
-        require(beneficiary != address(0)); // dev: holder must be defined
-        require(IERC20Upgradeable(underlying).allowance(sender, address(this)) >= amount); // dev: need approval
+        require(amount > 0);
+        // dev: Cannot deposit 0
+        require(beneficiary != address(0));
+        // dev: holder must be defined
+        require(IERC20Upgradeable(underlying).allowance(sender, address(this)) >= amount);
+        // dev: need approval
 
         // totalSupply * getPricePerFullShare = underlyingBalanceWithInvestment
         uint256 toMint = totalSupply() == 0
@@ -301,7 +293,7 @@ contract ArrayVault is ERC20Upgradeable {
 
         _burn(msg.sender, numberOfShares);
 
-        uint256 underlyingAmountToWithdraw = underlyingBalanceWithInvestment() * (numberOfShares / totalSupply);
+        uint256 underlyingAmountToWithdraw = underlyingBalanceWithInvestment() * numberOfShares / totalSupply;
 
         if (underlyingAmountToWithdraw > underlyingBalanceInVault())
 
@@ -315,11 +307,12 @@ contract ArrayVault is ERC20Upgradeable {
             }
             // recalculate to improve accuracy
             underlyingAmountToWithdraw = MathUpgradeable.min(underlyingBalanceWithInvestment()
-                * (numberOfShares / totalSupply),
+            * numberOfShares / totalSupply,
                 underlyingBalanceInVault());
         }
 
         IERC20Upgradeable(underlying).safeTransfer(msg.sender, underlyingAmountToWithdraw);
+        // dev: can't withdraw
 
         // update the withdrawal amount for the holder
         emit Withdraw(msg.sender, underlyingAmountToWithdraw);

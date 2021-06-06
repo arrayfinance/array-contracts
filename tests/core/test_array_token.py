@@ -29,7 +29,7 @@ def test_mint_burn(token, governance, rogue, user):
     amount = 10e18
     assert not token.hasRole(minter, user)
     assert not token.hasRole(burner, user)
-    with brownie.reverts('dev: wrong role'):
+    with brownie.reverts():
         token.mint(to, amount, {'from': rogue})
-    with brownie.reverts('dev: wrong role'):
+    with brownie.reverts():
         token.burn(to, amount, {'from': rogue})
