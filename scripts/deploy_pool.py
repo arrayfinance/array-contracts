@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 
 
 class Deployer:
-    from brownie import interface, rpc, ArrayToken, Curve, accounts, ArrayToken, Curve, interface, ArrayRoles, ZERO_ADDRESS, chain, \
+    from brownie import interface, rpc, ArrayToken, Curve, accounts, ArrayToken, Curve, interface, ArrayRoles, \
+        ZERO_ADDRESS, chain, \
         web3
 
     POOL_VALUE = 700_000
@@ -89,8 +90,8 @@ class Deployer:
         # dao multisig addy
         self.me = self.accounts.at('0xB60eF661cEdC835836896191EDB87CC025EFd0B7', force=True)
         self.accounts.default = self.me
-
         self.calc_collateral(n)
+
         self.filename = f'data{n}.csv'
         for k, v in self.tokens.items():
             w = self.whales[k]
@@ -137,11 +138,6 @@ class Deployer:
     def _get_prices_in_token(self, t1, t2):
         return self._get_prices_in_eth(t1) / self._get_prices_in_eth(t2)
 
-    def setup(self):
-        self._deploy_array_token()
-        self._deploy_pool()
-        self._deploy_bpool()
-
     def _deploy_array_token(self):
         self.accounts.default = self.me
         self.array = self.ArrayToken.deploy('ArrayToken', 'ARRAY')
@@ -168,88 +164,6 @@ class Deployer:
     def _deploy_bpool(self):
         self.bpool = self.interface.bpool(self.pool.bPool())
 
-    def deploy_curve(self):
-        self.accounts.default = self.me
-        self.balance = self.balance
-        self.crv = self.Curve.deploy()
-
-    def deploy_roles(self):
-        self.accounts.default = self.me
-        self.roles = ArrayRoles.deploy()
-
-
-    def initialize_curve(self):
-        self.accounts.default = self.me
-        self.pool.approve(self.crv, self.balance)
-        self.array.grantRole(self.array.MINTER_ROLE(), self.crv)
-        self.array.grantRole(self.array.BURNER_ROLE(), self.crv)
-
-        self.crv.initialize(self.array, self.pool, self.bpool, self.cw, self.balance)
-
-        for k in self.tokens:
-            self.tokens[k].approve(self.crv, 2 ** 256 - 1)
-        for k in self.tokens:
-            self.crv.addTokenToVirtualLP(self.tokens[k])
-
-    def get_crv_supply(self):
-        return self.crv.virtualSupply()
-
-    def get_crv_balance(self):
-        return self.crv.virtualBalance()
-
-    def get_crv_m(self):
-        cw = self.cw / 1e6
-        balance = self.get_crv_balance() / 1e18
-        supply = self.get_crv_supply() / 1e18
-        return balance / (cw * (supply ** (1 / cw)))
-
-    def get_crv_n(self):
-        cw = self.cw / 1e6
-        return (1 / cw) - 1
-
-    def get_price_at(self, at):
-        m = self.get_crv_m()
-        n = self.get_crv_n()
-        return m * at ** n
-
-    def get_curve_data(self, name):
-        konsole = Console()
-        start_time = int(time.time())
-        counter = 0
-        with open(f"data_{self.cw}.csv", "wt") as report_file:
-            console = Console(file=report_file)
-            console.print('supply,price')
-
-            konsole.clear(home=True)
-            l = []
-
-            tokens_ = self.tokens
-            while counter < 31:
-                for k in tokens_:
-                    v = tokens_[k]
-                    dec = v.decimals()
-
-                    buy = 50000 * 10 ** dec / self.dai_prices[k]
-                    t = (int(time.time()) - start_time) / 60
-
-                    if v.balanceOf(self.me) <= buy or buy >= self.bpool.getBalance(v.address) / 2 - 100:
-                        tokens_.pop(k)
-                        continue
-                    tx = self.crv.buy(v.address, int(buy), 2)
-
-                    if tx.return_value:
-                        purchase = tx.return_value / 1e18
-                        buy_amount_in_dai = (buy / 10 ** dec) * self.dai_prices[k]
-                        sp = self.get_crv_supply() / 1e18
-                        price_in_dai = buy_amount_in_dai / purchase
-                        if k == 'dai':
-                            counter = counter + 1;
-                            konsole_supply = int(self.get_crv_supply() / 1e18)
-                            konsole.rule(
-                                title=f'[red]{t:.2f} minutes, [blue] supply = {konsole_supply}, [yellow] price = {price_in_dai}')
-                            console.print(f'{sp:.2f},{price_in_dai:.2f}')
-                            l.append({'supply': int(sp), 'price': float(price_in_dai)})
-
     def calc_collateral(self, n):
         n = float(n)
         cw = 1 / (1 + n)
@@ -260,20 +174,12 @@ class Deployer:
         self.balance = balance * 1e18
         self.cw = int(round(cw * 1e6, 6))
 
-    def pool_in(self, factor):
-        m = 2 ** 256 - 1
-        self.pool.joinPool(factor, [m, m, m, m, m])
-
-    def pool_out(self, factor):
-        m = 0
-        self.pool.exitPool(factor, [m, m, m, m, m])
+    def setup(self):
+        self._deploy_array_token()
+        self._deploy_pool()
+        self._deploy_bpool()
 
 
 def main():
-    for i in range(4, 20, 1):
-        i = i / 10
-        d = Deployer(float(i))
-        d.setup()
-        d.deploy_curve()
-        d.initialize_curve()
-        d.get_curve_data(i)
+    d = Deployer()
+    d.setup()

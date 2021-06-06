@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts/utils/ContextUpgradeable.sol";
 
-import "../utils/ArrayRoles.sol";
+import "../access/ArrayRoles.sol";
 
 contract MockRoles is Initializable{
     IAccessControlUpgradeable something;

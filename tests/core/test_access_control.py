@@ -1,9 +1,3 @@
-from hexbytes import HexBytes
-import pytest
-import brownie
-from brownie import ZERO_ADDRESS
-
-
 def test_timelock_roles(timelock, governance, developer, user):
     # sanity checks
     assert timelock.hasRole(timelock.PROPOSER_ROLE(), governance)
@@ -25,6 +19,5 @@ def test_proxy_admin_roles(proxy_admin, timelock):
 def test_roles_roles(roles, governance, developer, timelock):
     assert roles.hasRole(roles.DEVELOPER(), developer)
     assert roles.hasRole(roles.GOVERNANCE(), governance)
-    assert roles.hasRole(roles.VAULT_TIMELOCK(), timelock)
-    assert roles.hasRole(roles.STRATEGY_TIMELOCK(), timelock)
+    assert roles.hasRole(roles.TIMELOCK(), timelock)
     assert roles.hasRole(roles.DEFAULT_ADMIN_ROLE(), timelock)
