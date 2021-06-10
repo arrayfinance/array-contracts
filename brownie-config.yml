@@ -33,7 +33,6 @@ compiler:
     version: null
     remappings:
       - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.1.0"
-      - "@openzeppelinupgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.1.0"
 
 hypothesis:
   deadline: null

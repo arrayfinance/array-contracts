@@ -3,9 +3,9 @@
 pragma solidity ^0.8.2;
 
 // openzeppelin stuff
-import "@openzeppelin/contracts/security/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSetUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 
 // custom stuff
 import "../utils/GasPrice.sol";
@@ -307,7 +307,7 @@ contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
 
     function addTokenToVirtualLP(address token)
     public
-    onlyDAOMSIG
+    needsRole(keccak256("DAO_MULTISIG"))
     returns (bool success){
         require(this.isTokenInLP(token), "Token not in Balancer LP");
         return success = virtualLpTokens.add(token);
@@ -315,7 +315,7 @@ contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
 
     function removeTokenFromVirtualLP(address token)
     public
-    onlyDAOMSIG
+    needsRole(keccak256("DAO_MULTISIG"))
     returns (bool success) {
         require(this.isTokenInVirtualLP(token), "Token not in Virtual LP");
         return success = virtualLpTokens.remove(token);
@@ -323,7 +323,7 @@ contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
 
     function setDaoPct(uint256 amount)
     public
-    onlyDAOMSIG
+    needsRole(keccak256("DAO_MULTISIG"))
     returns (bool success) {
         devPctToken = amount;
         success = true;
@@ -331,7 +331,7 @@ contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
 
     function setDevPct(uint256 amount)
     public
-    onlyDAOMSIG
+    needsRole(keccak256("DAO_MULTISIG"))
     returns (bool success) {
         devPctToken = amount;
         success = true;
@@ -339,7 +339,7 @@ contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
 
     function setMaxSupply(uint256 amount)
     public
-    onlyDAOMSIG
+    needsRole(keccak256("DAO_MULTISIG"))
     returns (bool success)
     {
         maxSupply = amount;

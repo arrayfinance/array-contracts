@@ -2,13 +2,13 @@
 
 pragma solidity ^0.8.2;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts/utils/AddressUpgradeable.sol";
-import "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts/utils/ContextUpgradeable.sol";
-import "@openzeppelin/contracts/utils/math/MathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 
 import "../interfaces/IArrayStrategy.sol";
 import "../access/ArrayRolesStorage.sol";
@@ -43,7 +43,6 @@ contract ArrayVault is ERC20Upgradeable, ArrayRolesStorage, OwnableUpgradeable {
     uint256 public toinvestNumerator; // don't change me it hurts
     uint256 public toInvestDenominator; // leave me be
     uint256 public precision = 10 ** 18;
-
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,7 +155,7 @@ contract ArrayVault is ERC20Upgradeable, ArrayRolesStorage, OwnableUpgradeable {
 
     function rebalance()
     external
-    onlyDev
+    needsRole(keccak256("DEVELOPER"))
     {
         withdrawAll();
         invest();
@@ -189,7 +188,7 @@ contract ArrayVault is ERC20Upgradeable, ArrayRolesStorage, OwnableUpgradeable {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     function doStuff()
-    onlyDev
+    needsRole(keccak256("DEVELOPER"))
     external
     {
         invest();
@@ -214,14 +213,14 @@ contract ArrayVault is ERC20Upgradeable, ArrayRolesStorage, OwnableUpgradeable {
     // come home boys
     function withdrawAll()
     public
-    onlyDev
+    needsRole(keccak256("DEVELOPER"))
     {
         IArrayStrategy(strategy).withdrawAllToVault();
     }
 
     function setStrategy(address _strategy)
     public
-    onlyTimelock
+    needsRole(keccak256("TIMELOCK"))
     {
         require(_strategy != address(0), "new _strategy cannot be empty");
         require(IArrayStrategy(_strategy).underlying() == address(underlying), "Vault underlying must match Strategy underlying");

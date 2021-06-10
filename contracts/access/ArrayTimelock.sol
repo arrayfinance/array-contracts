@@ -10,7 +10,7 @@ contract ArrayTimelock is TimelockController {
 
         // removing the admin role for the timelock contract guarantees that the minimum delay and the events
         // are being triggered for all functions for which it has the sole permission (ie changing proxy implementations,
-        // yield, adding / removing roles
+        // _yield, adding / removing roles
 
         renounceRole(TIMELOCK_ADMIN_ROLE, _msgSender());
     }
