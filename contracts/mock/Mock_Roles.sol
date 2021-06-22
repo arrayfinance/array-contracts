@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.2;
 
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts/utils/ContextUpgradeable.sol";
+import "../../node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "../../node_modules/@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "../../node_modules/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 
 import "../access/ArrayRoles.sol";
 

@@ -1,0 +1,26 @@
+{
+  "name": "array-contracts",
+  "version": "1.0.0",
+  "description": "Repo for Array contracts.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arrayfinance/array-contracts.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/arrayfinance/array-contracts/issues"
+  },
+  "homepage": "https://github.com/arrayfinance/array-contracts#readme",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.1.0",
+    "@openzeppelin/contracts-upgradeable": "^4.1.0"
+  }
+}

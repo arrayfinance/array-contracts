@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.2;
 
-import "@openzeppelin/contracts/utils/Context.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "../../node_modules/@openzeppelin/contracts/utils/Context.sol";
+import "../../node_modules/@openzeppelin/contracts/access/AccessControl.sol";
+import "../../node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract ArrayToken is Context, AccessControl, ERC20 {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
