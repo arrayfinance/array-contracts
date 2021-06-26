@@ -6,7 +6,7 @@ Repo for Array contracts.
 The testing-suite is configured for use with [Ganache](https://github.com/trufflesuite/ganache-cli) on a [forked 
 mainnet](https://eth-brownie.readthedocs.io/en/stable/network-management.html#using-a-forked-development-network).
 
-To run the tests:
+To run the tests-
 
 1. Install [Python 3.8](https://www.python.org/downloads/release/python-380/)
     - Linux: Refer to your distro documentation
