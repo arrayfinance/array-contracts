@@ -21,6 +21,7 @@
   "homepage": "https://github.com/arrayfinance/array-contracts#readme",
   "dependencies": {
     "@openzeppelin/contracts": "^4.1.0",
-    "@openzeppelin/contracts-upgradeable": "^4.1.0"
+    "@openzeppelin/contracts-upgradeable": "^4.1.0",
+    "hardhat": "^2.4.1"
   }
 }

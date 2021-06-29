@@ -5,3 +5,4 @@ build/
 reports/
 /reference/
 /venv/
+node_modules
