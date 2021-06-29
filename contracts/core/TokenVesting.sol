@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Unlicense
 
 pragma solidity 0.8.0;
-import "../../node_modules/@openzeppelin/contracts/access/Ownable.sol";
-import "../../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 
 contract TokenVesting is Ownable {

@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.2;
 
-import "../../node_modules/@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 contract ArrayProxyAdmin is ProxyAdmin {
     constructor(address _timelock){

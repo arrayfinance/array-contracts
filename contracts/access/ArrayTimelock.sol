@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.2;
 
-import "../../node_modules/@openzeppelin/contracts/governance/TimelockController.sol";
+import "@openzeppelin/contracts/governance/TimelockController.sol";
 
 contract ArrayTimelock is TimelockController {
     constructor(uint256 _minDelay, address[] memory _proposers, address[] memory _executors)
