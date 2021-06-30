@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
  * minimum delay (24hs) before enacted.
  **/
 
-contract ArrayRoles is AccessControl {
+contract ArrayRoles is AccessControl, Initializable {
 
     // roles from least permissioned to most permissioned,
 
