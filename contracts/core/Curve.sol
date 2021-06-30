@@ -19,6 +19,8 @@ import "../interfaces/IBPool.sol";
 
 
 contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
+
+    address private owner;
     address private DAO_MULTISIG_ADDRESS = address(0xB60eF661cEdC835836896191EDB87CC025EFd0B7);
     address private DEV_MULTISIG_ADDRESS = address(0x3c25c256E609f524bf8b35De7a517d5e883Ff81C);
     uint256 private PRECISION = 10 ** 18;
@@ -64,6 +66,9 @@ contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
         uint256 amountLPTokenReturned
     );
 
+    constructor() {
+        owner = msg.sender;
+    }
 
     function initialize(
         address _roles,
@@ -75,10 +80,10 @@ contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
     )
     public initializer
     {
+        require(msg.sender == owner, "!owner");
+
         devPctToken = 10 * 10 ** 16;
         daoPctToken = 20 * 10 ** 16;
-
-        maxSupply = 100000 * PRECISION;
 
         maxSupply = 100000 * PRECISION;
 
@@ -89,7 +94,7 @@ contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
         bancorFormula = IBancorFormula(0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a);
 
         // Send LP tokens from owner to balancer
-        require(arraySmartPool.transferFrom(msg.sender, address(this), initialAmountLPToken), "Transfer failed");
+        require(arraySmartPool.transferFrom(DAO_MULTISIG_ADDRESS, address(this), initialAmountLPToken), "Transfer failed");
         __ReentrancyGuard_init_unchained();
         ArrayRolesStorage.initialize(_roles);
 
