@@ -2,15 +2,15 @@
 
 pragma solidity ^0.8.2;
 
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 /**
  * @dev As added security, the admin of this contract is the timelock controller, thus, any changes will have the
  * minimum delay (24hs) before enacted.
  **/
 
-contract ArrayRoles is AccessControlUpgradeable {
+contract ArrayRoles is AccessControl {
 
     // roles from least permissioned to most permissioned,
 
@@ -26,13 +26,10 @@ contract ArrayRoles is AccessControlUpgradeable {
     bytes32 public constant TIMELOCK = keccak256("TIMELOCK");
 
     function initialize(address _developer, address _governance, address _timelock)
-    public
-    initializer
+    public initializer
     {
 
         // set up roles
-        __AccessControl_init();
-
         _setupRole(DEFAULT_ADMIN_ROLE, _timelock);
         _setupRole(DEVELOPER, _developer);
         _setupRole(DAO_MULTISIG, address(0xB60eF661cEdC835836896191EDB87CC025EFd0B7));

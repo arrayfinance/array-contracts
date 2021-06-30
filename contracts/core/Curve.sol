@@ -18,7 +18,7 @@ import "../interfaces/ISmartPool.sol";
 import "../interfaces/IBPool.sol";
 
 
-contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
+contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
 
     address private owner;
     address private DAO_MULTISIG_ADDRESS = address(0xB60eF661cEdC835836896191EDB87CC025EFd0B7);
@@ -42,8 +42,8 @@ contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
 
     uint256 public maxSupply;
 
-    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
-    EnumerableSetUpgradeable.AddressSet private virtualLpTokens;
+    using EnumerableSet for EnumerableSet.AddressSet;
+    EnumerableSet.AddressSet private virtualLpTokens;
 
     uint32 public reserveRatio;
 
@@ -95,7 +95,7 @@ contract Curve is ReentrancyGuardUpgradeable, ArrayRolesStorage, GasPrice{
 
         // Send LP tokens from owner to balancer
         require(arraySmartPool.transferFrom(DAO_MULTISIG_ADDRESS, address(this), initialAmountLPToken), "Transfer failed");
-        __ReentrancyGuard_init_unchained();
+        // __ReentrancyGuard_init_unchained();  
         ArrayRolesStorage.initialize(_roles);
 
         // Mint ARRAY to CCO
