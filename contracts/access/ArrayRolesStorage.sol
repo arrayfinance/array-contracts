@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.2;
 
-import "@openzeppelin/contracts-upgradeable/utils/StorageSlotUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts/utils/StorageSlot.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
 
 contract ArrayRolesStorage is Initializable {
@@ -13,26 +13,26 @@ contract ArrayRolesStorage is Initializable {
 
     modifier onlyDev() {
 
-        require(IAccessControlUpgradeable(getRoles()).hasRole(keccak256('DEVELOPER'), msg.sender));
+        require(IAccessControl(getRoles()).hasRole(keccak256('DEVELOPER'), msg.sender));
         _;
     }
     modifier onlyGov() {
-        require(IAccessControlUpgradeable(getRoles()).hasRole(keccak256('GOVERNANCE'), msg.sender));
+        require(IAccessControl(getRoles()).hasRole(keccak256('GOVERNANCE'), msg.sender));
         _;
     }
 
     modifier onlyDAOMSIG() {
-        require(IAccessControlUpgradeable(getRoles()).hasRole(keccak256('DAO_MULTISIG'), msg.sender));
+        require(IAccessControl(getRoles()).hasRole(keccak256('DAO_MULTISIG'), msg.sender));
         _;
     }
 
     modifier onlyDEVMSIG() {
-        require(IAccessControlUpgradeable(getRoles()).hasRole(keccak256('DEV_MULTISIG'), msg.sender));
+        require(IAccessControl(getRoles()).hasRole(keccak256('DEV_MULTISIG'), msg.sender));
         _;
     }
 
     modifier onlyTimelock() {
-        require(IAccessControlUpgradeable(getRoles()).hasRole(keccak256('TIMELOCK'), msg.sender));
+        require(IAccessControl(getRoles()).hasRole(keccak256('TIMELOCK'), msg.sender));
         _;
     }
 
@@ -41,7 +41,7 @@ contract ArrayRolesStorage is Initializable {
     initializer
     {
         assert(_STORAGE_SLOT == bytes32(uint256(keccak256("eip1967.accesscontrol.storage")) - 1));
-        StorageSlotUpgradeable.getAddressSlot(_STORAGE_SLOT).value = _access;
+        StorageSlot.getAddressSlot(_STORAGE_SLOT).value = _access;
 
     }
 
@@ -50,6 +50,6 @@ contract ArrayRolesStorage is Initializable {
     view
     returns (address)
     {
-        return StorageSlotUpgradeable.getAddressSlot(_STORAGE_SLOT).value;
+        return StorageSlot.getAddressSlot(_STORAGE_SLOT).value;
     }
 }
