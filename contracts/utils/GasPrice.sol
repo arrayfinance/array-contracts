@@ -21,6 +21,7 @@ contract GasPrice {
 
     function maxGasPrice()
     public
+    view
     returns (uint256 fastGas)
     {
         return fastGas = uint256(ChainLinkFeed.latestAnswer());
