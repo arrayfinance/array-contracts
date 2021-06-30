@@ -196,9 +196,6 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
 
         require(amountArray <= arrayToken.balanceOf(msg.sender), 'user balance < amount');
 
-        // get total supply of array token, subtract amount burned
-        uint256 amountArrayAfterBurn = virtualSupply - amountArray;
-
         // calculate how much of the LP token the burner gets
         uint256 amountLPTokenReturned = calculateLPtokensGivenArrayTokens(amountArray);
 

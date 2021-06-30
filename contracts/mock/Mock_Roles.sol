@@ -6,7 +6,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 
-import "../access/ArrayRoles.sol";
+// import "../access/ArrayRoles.sol";
 
 contract MockRoles is Initializable{
     IAccessControlUpgradeable something;
@@ -20,6 +20,7 @@ contract MockRoles is Initializable{
 
     function test_role()
     external
+    view
     returns (bool)
     {
         require(something.hasRole(keccak256("DEVELOPER"), msg.sender)); // dev: no role
