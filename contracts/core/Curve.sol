@@ -25,32 +25,37 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
     address private DEV_MULTISIG_ADDRESS = address(0x3c25c256E609f524bf8b35De7a517d5e883Ff81C);
     uint256 private PRECISION = 10 ** 18;
 
-    uint256 private devPctToken;
-    uint256 private daoPctToken;
-
     // Represents the 700k DAI spent for initial 10k tokens
     uint256 private STARTING_DAI_BALANCE = 700000 * PRECISION;
 
     // Starting supply of 10k ARRAY
     uint256 private STARTING_ARRAY_MINTED = 10000 * PRECISION;
 
+    IBancorFormula private bancorFormula = IBancorFormula(0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a);
+    uint32 public reserveRatio = 33333;
+
+    uint256 private devPctToken = 10 * 10 ** 16;
+    uint256 private daoPctToken = 20 * 10 ** 16;
+
     // Keeps track of LP tokens
     uint256 public virtualBalance;
+
+    uint256 public devFundArrayBalance;
+    uint256 public devFundLPBalance;
+    uint256 public daoArrayBalance;
+
 
     // Keeps track of ARRAY minted for bonding bancor
     uint256 public virtualSupply;
 
-    uint256 public maxSupply;
+    uint256 public maxSupply = 100000 * PRECISION;
 
     using EnumerableSet for EnumerableSet.AddressSet;
     EnumerableSet.AddressSet private virtualLpTokens;
 
-    uint32 public reserveRatio;
-
     IArray public arrayToken;
     ISmartPool public arraySmartPool;
     IBPool public arrayBalancerPool;
-    IBancorFormula public bancorFormula;
 
     event Buy(
         address from,
@@ -75,23 +80,16 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
         address _arrayToken,
         address _smartPool,
         address _bpool,
-        uint32 _rr,
         uint256 initialAmountLPToken
     )
     public initializer
     {
         require(msg.sender == owner, "!owner");
 
-        devPctToken = 10 * 10 ** 16;
-        daoPctToken = 20 * 10 ** 16;
-
-        maxSupply = 100000 * PRECISION;
-
         arrayToken = IArray(_arrayToken);
         arraySmartPool = ISmartPool(_smartPool);
         arrayBalancerPool = IBPool(_bpool);
-        reserveRatio = _rr;
-        bancorFormula = IBancorFormula(0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a);
+        
 
         // Send LP tokens from owner to balancer
         require(arraySmartPool.transferFrom(DAO_MULTISIG_ADDRESS, address(this), initialAmountLPToken), "Transfer failed");
@@ -111,36 +109,38 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
         @param slippage in percent, ie 2 means user accepts to receive 2% less than what is calculated
         */
 
-    function buy(address token, uint256 amount, uint256 slippage )
+    function buy(IERC20 token, uint256 amount, uint256 slippage )
     public
     nonReentrant
     validGasPrice
     returns (uint256 returnAmount)
     {
-        IERC20 _token = IERC20(token);
 
         require(this.isTokenInLP(token), 'token not in lp');
         require(this.isTokenInVirtualLP(token), 'token not greenlisted');
         require(amount > 0, 'amount is 0');
-        require(_token.allowance(msg.sender, address(this)) >= amount, 'user allowance < amount');
-        require(_token.balanceOf(msg.sender) >= amount, 'user balance < amount');
+        require(token.allowance(msg.sender, address(this)) >= amount, 'user allowance < amount');
+        require(token.balanceOf(msg.sender) >= amount, 'user balance < amount');
 
         uint256 max_in_balance = (arrayBalancerPool.getBalance(token) / 2) + 5;
         require(amount <= max_in_balance, 'ratio in too high');
 
-        require(_token.transferFrom(msg.sender, address(this), amount), 'transfer from user to contract failed');
-        require(_token.balanceOf(address(this)) >= amount, 'contract did not receive enough token');
+        require(token.transferFrom(msg.sender, address(this), amount), 'transfer from user to contract failed');
+        require(token.balanceOf(address(this)) >= amount, 'contract did not receive enough token');
 
         uint256 amountTokensForDAOMultiSig = amount * daoPctToken / PRECISION;
-        require(_token.transfer(DAO_MULTISIG_ADDRESS, amountTokensForDAOMultiSig), "transfer to DAO Multisig failed");
+
+        require(token.transfer(DAO_MULTISIG_ADDRESS, amountTokensForDAOMultiSig), "transfer to DAO Multisig failed");
 
         uint256 amountTokensForDEVMultiSig = amount * devPctToken / PRECISION;
-        require(_token.transfer(DEV_MULTISIG_ADDRESS, amountTokensForDEVMultiSig), "transfer to DEV Multisig failed");
+        require(token.transfer(DEV_MULTISIG_ADDRESS, amountTokensForDEVMultiSig), "transfer to DEV Multisig failed");
+
 
         // what's left will be used to get LP tokens
         uint256 amountTokensForLP = amount - amountTokensForDAOMultiSig - amountTokensForDEVMultiSig;
+        devFundLPBalance += 
 
-        require(_token.approve(address(arraySmartPool), amountTokensForLP), "token approve for contract to balancer pool failed");
+        require(token.approve(address(arraySmartPool), amountTokensForLP), "token approve for contract to balancer pool failed");
 
         // calculate the estimated LP tokens that we'd get and then adjust for slippage to have minimum
         uint256 maxLpTokenAmount = _calculateLPTokensGivenERC20Tokens(token, amountTokensForLP);
@@ -148,7 +148,7 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
 
 
         // send the pool the left over tokens for LP, expecting minimum return
-        uint256 lpTokenAmount = arraySmartPool.joinswapExternAmountIn(address(_token), amountTokensForLP, minLpTokenAmount);
+        uint256 lpTokenAmount = arraySmartPool.joinswapExternAmountIn(address(token), amountTokensForLP, minLpTokenAmount);
 
         // calculate how many array tokens correspond to the LP tokens that we got
         uint256 amountArrayToMint = _calculateArrayGivenLPTokenAMount(lpTokenAmount);
@@ -214,6 +214,43 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
     }
 
 
+
+    function withdrawDevFunds(address token, uint256 amount, bool max) external returns (bool) {
+        bool success = false;
+        require(msg.sender == DEV_MULTISIG_ADDRESS, "withdrawDevFunds: msg.sender != DEV_MULTISIG_ADDRESS");
+
+        if (token == address(arrayToken)) {
+            require(amount <= devFundArrayBalance);
+            if (max) {amount = devFundArrayBalance;}
+            
+            arrayToken.mint(DAO_MULTISIG_ADDRESS, amount);
+
+            devFundArrayBalance -= amount;
+            success = true;
+        } else {
+            require(amount <= devFundLPBalance);
+            if (max) {amount = devFundLPBalance;}
+
+            require(DAI.transfer(DEV_MULTISIG_ADDRESS, amount));
+
+            devFundLPBalance -= amount;
+            success = true;
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     function calculateArrayTokensGivenERC20Tokens(address token, uint256 amount)
     public
     view
@@ -223,7 +260,11 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
         require(this.isTokenInLP(token), 'token not in balancer LP');
 
         uint256 amountTokensForDAOMultiSig = amount * daoPctToken / PRECISION;
+
+        // Send 10% of amount to dev fund
         uint256 amountTokensForDEVMultiSig = amount * devPctToken / PRECISION;
+
+        // Use remaining 70% to LP
         uint256 amountTokensForLP = amount - amountTokensForDAOMultiSig - amountTokensForDEVMultiSig;
 
         uint256 maxLpTokenAmount = _calculateLPTokensGivenERC20Tokens(token, amountTokensForLP);
