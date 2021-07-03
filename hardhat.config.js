@@ -7,7 +7,7 @@ require("dotenv").config();
 module.exports = {
     solidity: {
         compilers: [
-            { version: "0.8.0" }
+            { version: "0.8.2" }
         ]
     },
     mocha: {
@@ -23,6 +23,10 @@ module.exports = {
             blockGasLimit: 0x1fffffffffffff,
             allowUnlimitedContractSize: true,
             timeout: 1800000,
+        },
+        mainnet: {
+            url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
+            accounts: [process.env.PRIVATE_KEY]
         }
     },
     paths: {
