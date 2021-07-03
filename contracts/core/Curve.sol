@@ -105,7 +105,7 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
     validGasPrice
     returns (uint256 returnAmount)
     {
-
+        require(slippage < 100, "slippage too high");
         require(this.isTokenInLP(address(token)), 'token not in lp');
         require(this.isTokenInVirtualLP(address(token)), 'token not greenlisted');
         require(amount > 0, 'amount is 0');
@@ -118,7 +118,6 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
 
         uint256 amountTokenForDao = amount * daoPctToken / PRECISION;
         uint256 amountTokenForDev = amount * devPctToken / PRECISION;
-
 
         // what's left will be used to get LP tokens
         uint256 amountTokenAfterFees = amount - amountTokenForDao - amountTokenForDev;
@@ -134,12 +133,11 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
         require(token.transferFrom(msg.sender, address(this), amount), 'transfer from user to contract failed');
         require(token.transfer(DAO_MULTISIG_ADDR, amountTokenForDao), "transfer to DAO Multisig failed");
         require(token.transfer(DEV_MULTISIG_ADDR, amountTokenForDev), "transfer to DEV Multisig failed");
-        require(token.balanceOf(address(this)) >= amount, 'contract did not receive the right amount of tokens');
+        require(token.balanceOf(address(this)) >= amountTokenAfterFees, 'contract did not receive the right amount of tokens');
 
         // send the pool the left over tokens for LP, expecting minimum return
-        uint256 minLpTokenAmount = amountLPReturned * slippage * 10 ** 6 / PRECISION;
+        uint256 minLpTokenAmount = amountLPReturned * slippage * 10**16 / PRECISION;
         uint256 lpTokenAmount = arraySmartPool.joinswapExternAmountIn(address(token), amountTokenAfterFees, minLpTokenAmount);
-
 
         arrayToken.mint(msg.sender, amountArrayToMint);
 
@@ -211,7 +209,7 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
         uint256 amountTokenForDao = amount * daoPctToken / PRECISION;
         uint256 amountTokenForDev = amount * devPctToken / PRECISION;
 
-        // Use remaining 70%
+        // Use remaining %
         uint256 amountTokenAfterFees = amount - amountTokenForDao - amountTokenForDev;
 
         expectedAmountArrayToMint = _calculateArrayMintedFromToken(token, amountTokenAfterFees);
