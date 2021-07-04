@@ -1,6 +1,8 @@
 require("@nomiclabs/hardhat-truffle5");
 require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-web3");
+require("@nomiclabs/hardhat-etherscan");
+
 
 require("dotenv").config();
 
@@ -27,6 +29,10 @@ module.exports = {
         mainnet: {
             url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
             accounts: [process.env.PRIVATE_KEY]
+        },
+        etherscan: {
+            url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
+            apiKey: `${process.env.ETHERSCAN_KEY}`
         }
     },
     paths: {
