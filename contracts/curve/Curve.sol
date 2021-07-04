@@ -163,7 +163,7 @@ interface I_SmartPool{
 
 }
 
-contract Curve is ReentrancyGuard {
+contract OldCurve is ReentrancyGuard {
 
     address public DAO_MULTISIG_ADDR = 0xB60eF661cEdC835836896191EDB87CC025EFd0B7;
     address public DEV_MULTISIG_ADDR = 0x3c25c256E609f524bf8b35De7a517d5e883Ff81C;

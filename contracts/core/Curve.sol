@@ -110,7 +110,6 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
         require(this.isTokenInVirtualLP(address(token)), 'token not greenlisted');
         require(amount > 0, 'amount is 0');
         require(token.allowance(msg.sender, address(this)) >= amount, 'user allowance < amount');
-       
         require(token.balanceOf(msg.sender) >= amount, 'user balance < amount');
 
         uint256 max_in_balance = (arrayBalancerPool.getBalance(address(token)) / 2) + 5;
