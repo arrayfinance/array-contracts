@@ -1,16 +1,25 @@
 const { network: { provider }, expect, artifacts } = require('hardhat');
 const fs = require('fs')
 
-require('@nomiclabs/hardhat-ethers');
-require("@nomiclabs/hardhat-truffle5");
-require("@nomiclabs/hardhat-waffle");
 require('dotenv').config();
 
-const MyContract = artifacts.require("MyContract");
+const Timelock = artifacts.require("ArrayTimelock");
+const Curve = artifacts.require("Curve");
+const ArrayToken = artifacts.require("ArrayToken");
 
 async function main() {
-    let myContract = await MyContract.new();
 
+    // deploy timelock
+    // let timelock = await Timelock.new(24*60*60, [gov.address], [developer.address, user.address]);
+    // console.log(timelock.address);
+
+    // deploy curve
+    // let curve = await Curve.new();
+    // console.log(curve.address);
+
+    // deploy array token
+    let arrayToken = await ArrayToken.new("Array Token", "ARRAY");
+    console.log(arrayToken.address);
 
 }
 
