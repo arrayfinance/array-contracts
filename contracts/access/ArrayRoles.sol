@@ -12,6 +12,7 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 contract ArrayRoles is AccessControl, Initializable {
 
+    address public owner;
     // roles from least permissioned to most permissioned,
 
     // DEVELOPER is in charge of operational functions, also in case of emergency withdraw all funds from strategy to vault
@@ -25,10 +26,14 @@ contract ArrayRoles is AccessControl, Initializable {
     // TIMELOCK can change the strategy for every vault and change implementations
     bytes32 public constant TIMELOCK = keccak256("TIMELOCK");
 
+    constructor () {
+        owner = msg.sender;
+    }
+
     function initialize(address _developer, address _governance, address _timelock)
     public initializer
     {
-
+        require(msg.sender == owner, "!owner");
         // set up roles
         _setupRole(DEFAULT_ADMIN_ROLE, _timelock);
         _setupRole(DEVELOPER, _developer);
