@@ -136,15 +136,15 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
 
         // send the pool the left over tokens for LP, expecting minimum return
         uint256 minLpTokenAmount = amountLPReturned * slippage * 10**16 / PRECISION;
-        uint256 lpTokenAmount = arraySmartPool.joinswapExternAmountIn(address(token), amountTokenAfterFees, minLpTokenAmount);
+        uint256 lpTokenReceived = arraySmartPool.joinswapExternAmountIn(address(token), amountTokenAfterFees, minLpTokenAmount);
 
         arrayToken.mint(msg.sender, amountArrayToMint);
 
         // update virtual balance and supply
-        virtualBalance = virtualBalance + lpTokenAmount;
+        virtualBalance = virtualBalance + lpTokenReceived;
         virtualSupply = virtualSupply + amountArrayToMint;
 
-        emit Buy(msg.sender, address(token), amount, lpTokenAmount, amountArrayToMint);
+        emit Buy(msg.sender, address(token), amount, lpTokenReceived, amountArrayToMint);
         return returnAmount = amountArrayToMint;
     }
 
@@ -201,7 +201,7 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
     view
     returns (uint256 expectedAmountArrayToMint)
     {
-        require(this.isTokenInVirtualLP(token), 'token not in virtual LP');
+        // require(this.isTokenInVirtualLP(token), 'token not in virtual LP');
         require(this.isTokenInLP(token), 'token not in balancer LP');
 
         // Send 10% of amount to dev fund

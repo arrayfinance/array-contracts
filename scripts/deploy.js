@@ -14,12 +14,12 @@ async function main() {
     // console.log(timelock.address);
 
     // deploy curve
-    // let curve = await Curve.new();
-    // console.log(curve.address);
+    let curve = await Curve.new();
+    console.log(curve.address);
 
     // deploy array token
-    let arrayToken = await ArrayToken.new("Array Token", "ARRAY");
-    console.log(arrayToken.address);
+    // let arrayToken = await ArrayToken.new("Array Token", "ARRAY");
+    // console.log(arrayToken.address);
 
 }
 
