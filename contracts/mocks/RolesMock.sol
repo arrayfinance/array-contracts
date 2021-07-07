@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 
 // import "../access/ArrayRoles.sol";
 
-contract MockRoles is Initializable{
+contract RolesMock is Initializable{
     IAccessControlUpgradeable something;
 
     function initialize(address _something)
