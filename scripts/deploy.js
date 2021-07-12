@@ -9,17 +9,19 @@ const ArrayToken = artifacts.require("ArrayToken");
 
 async function main() {
 
+    let DAO_MSIG = "0xB60eF661cEdC835836896191EDB87CC025EFd0B7";
+
     // deploy timelock
-    // let timelock = await Timelock.new(24*60*60, [gov.address], [developer.address, user.address]);
-    // console.log(timelock.address);
+    let timelock = await Timelock.new(24*60*60, [DAO_MSIG], [DAO_MSIG]);
+    console.log(timelock.address);
 
     // deploy curve
     let curve = await Curve.new();
     console.log(curve.address);
 
     // deploy array token
-    // let arrayToken = await ArrayToken.new("Array Token", "ARRAY");
-    // console.log(arrayToken.address);
+    let arrayToken = await ArrayToken.new("Array Token", "ARRAY");
+    console.log(arrayToken.address);
 
 }
 

@@ -18,7 +18,7 @@ import "../interfaces/ISmartPool.sol";
 import "../interfaces/IBPool.sol";
 
 
-contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
+contract CurveMock is ReentrancyGuard, ArrayRolesStorage, GasPrice{
 
     address private owner;
     address private DAO_MULTISIG_ADDR = address(0xB60eF661cEdC835836896191EDB87CC025EFd0B7);
@@ -133,8 +133,8 @@ contract Curve is ReentrancyGuard, ArrayRolesStorage, GasPrice{
         require(amountArrayToMint + virtualSupply <= maxSupply, 'minted array > total supply');
 
         require(token.transferFrom(msg.sender, address(this), amount), 'transfer from user to contract failed');
-        require(token.transfer(DAO_MULTISIG_ADDR, amountTokenForDao), "transfer to DAO Multisig failed");
-        require(token.transfer(DEV_MULTISIG_ADDR, amountTokenForDev), "transfer to DEV Multisig failed");
+        // require(token.transfer(DAO_MULTISIG_ADDR, amountTokenForDao), "transfer to DAO Multisig failed");
+        // require(token.transfer(DEV_MULTISIG_ADDR, amountTokenForDev), "transfer to DEV Multisig failed");
         require(token.balanceOf(address(this)) >= amountTokenAfterFees, 'contract did not receive the right amount of tokens');
 
         // send the pool the left over tokens for LP, expecting minimum return

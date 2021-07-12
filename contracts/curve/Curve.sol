@@ -282,7 +282,7 @@ contract OldCurve is ReentrancyGuard {
     function buy(address token, uint256 amount) public nonReentrant {
         require(initialized, "!initialized");
         require(this.isTokenInLP(token), "Token not in LP");
-        require(this.isTokenInVirtualLP(token), "Token not greenlisted");
+        // require(this.isTokenInVirtualLP(token), "Token not greenlisted");
         require(amount > 0, "buy: cannot deposit 0 tokens");
 
         uint256 amountArrayReturned = calculateArrayGivenTokenAndAmount(token, amount);
