@@ -1,3 +1,5 @@
+[![MythXBadge](https://badgen.net/https/api.mythx.io/v1/projects/e81807aa-f119-456a-81b4-c88e493ddbf1/badge/data?cache=300&icon=https://raw.githubusercontent.com/ConsenSys/mythx-github-badge/main/logo_white.svg)](https://docs.mythx.io/dashboard/github-badges)
+
 # Array Contracts
 
 Repo for Array contracts.
