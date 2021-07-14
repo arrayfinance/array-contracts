@@ -47,6 +47,7 @@ def isolation(fn_isolation):
     pass
 
 
+@pytest.mark.skip()
 def test_stateful(af, spool, bpool, accounts, daomsig, developer, rich, tokens):
     accounts.default = rich
     for k, v in tokens.items():
@@ -67,10 +68,3 @@ def test_stateful(af, spool, bpool, accounts, daomsig, developer, rich, tokens):
                 print(f'{af.totalSupply() / 1e18:.4f} -> {price:.4f} DAI')
         if af.totalSupply() > 90000e18:
             break
-
-    df = pd.DataFrame(l)
-    plt.figure()
-    df.plot(x='supply', y='price')
-    df.to_csv('data.csv')
-    plt.show()
-    plt.close()
