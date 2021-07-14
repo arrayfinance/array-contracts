@@ -4,6 +4,22 @@
 
 Repo for Array contracts.
 
+## Contracts
+
+#### Curve.sol v0.2
+* [v0.1](https://etherscan.io/address/0xa0bc1aef5a4645a774bd38f4733c6c4b4a4b0d0a)
+* [v0.2](https://etherscan.io/address/0xa3ad60f5142b8a54822d66bfa2f1f106e95ad8b0)
+    * Fixed: broken `virtualLP` check in `buy()` 
+
+
+#### ARRAY erc20
+* [v0.1](https://etherscan.io/address/0x1bc65a16b8305c3186f88237c0adead145396de0)
+
+#### Timelock
+* [v0.1](https://etherscan.io/address/0x630db78131d3a67ab23900cd28165a99158fa6bc)
+
+---
+
 ## Testing
 The testing-suite is configured for use with [Ganache](https://github.com/trufflesuite/ganache-cli) on a [forked 
 mainnet](https://eth-brownie.readthedocs.io/en/stable/network-management.html#using-a-forked-development-network).
