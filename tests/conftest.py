@@ -123,4 +123,8 @@ def rich(guy, dai, usdc, weth, wbtc, renbtc, nance, poly, nance_two,
         _.transfer(guy, _.balanceOf(ftx), {'from': ftx})
         _.transfer(guy, _.balanceOf(rex), {'from': rex})
 
+    cur = interface.curve('0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714')
+    wbtc.approve(cur, 2 ** 256 - 1, {'from': guy})
+    cur.exchange(1, 0, wbtc.balanceOf(guy)/2, 0, {'from': guy})
+
     yield guy

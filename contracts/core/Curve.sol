@@ -25,7 +25,7 @@ contract ArrayFinance is ERC20, ReentrancyGuard, GasPrice {
     // Starting supply of 10k ARRAY
     uint256 private STARTING_ARRAY_MINTED = 10000 * PRECISION;
 
-    uint32 public reserveRatio = 33333;
+    uint32 public reserveRatio = 455555;
 
     uint256 private devPctToken = 10 * 10 ** 16;
     uint256 private daoPctToken = 20 * 10 ** 16;
@@ -82,8 +82,8 @@ contract ArrayFinance is ERC20, ReentrancyGuard, GasPrice {
     external
     onlyDAOMSIG
     {
-        uint256 initialAmountLPToken = 100 * 10 ** 18;
-        require(arraySmartPool.transferFrom(DAO_MULTISIG_ADDR, address(this), initialAmountLPToken), "Transfer failed");
+        uint256 amount = arraySmartPool.balanceOf(DAO_MULTISIG_ADDR);
+        require(arraySmartPool.transferFrom(DAO_MULTISIG_ADDR, address(this), amount), "Transfer failed");
         _mint(DAO_MULTISIG_ADDR, STARTING_ARRAY_MINTED);
 
     }
