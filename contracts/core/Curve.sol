@@ -38,6 +38,11 @@ contract ArrayFinance is ERC20, ReentrancyGuard, Initializable, GasPrice {
     ISmartPool public arraySmartPool = ISmartPool(0xA800cDa5f3416A6Fb64eF93D84D6298a685D190d);
     IBPool public arrayBalancerPool = IBPool(0x02e1300A7E6c3211c65317176Cf1795f9bb1DaAb);
 
+    IERC20 private dai = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+    IERC20 private usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    IERC20 private weth = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20 private wbtc = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+    IERC20 private renbtc = IERC20(0xEB4C2781e4ebA804CE9a9803C67d0893436bB27D);
 
     event Buy(
         address from,
@@ -98,7 +103,7 @@ contract ArrayFinance is ERC20, ReentrancyGuard, Initializable, GasPrice {
     returns (uint256 returnAmount)
     {
         require(slippage < 50, "slippage too high");
-        require(this.isTokenInLP(address(token)), 'token not in lp');
+        require(isTokenInLP(address(token)), 'token not in lp');
         require(amount > 0, 'amount is 0');
         require(token.allowance(msg.sender, address(this)) >= amount, 'user allowance < amount');
         require(token.balanceOf(msg.sender) >= amount, 'user balance < amount');
@@ -187,7 +192,7 @@ contract ArrayFinance is ERC20, ReentrancyGuard, Initializable, GasPrice {
     view
     returns (uint256 expectedAmountArrayToMint)
     {
-        require(this.isTokenInLP(token), 'token not in balancer LP');
+        require(isTokenInLP(token), 'token not in balancer LP');
 
         uint256 amountTokenForDao = amount * daoPctToken / PRECISION;
         uint256 amountTokenForDev = amount * devPctToken / PRECISION;
@@ -268,7 +273,7 @@ contract ArrayFinance is ERC20, ReentrancyGuard, Initializable, GasPrice {
 */
 
     function isTokenInLP(address token)
-    external
+    internal
     view
     returns (bool)
     {
@@ -304,5 +309,26 @@ contract ArrayFinance is ERC20, ReentrancyGuard, Initializable, GasPrice {
     {
         maxSupply = amount;
         success = true;
+    }
+
+    // gives the value of one LP token in the array of underlying assets, scaled to 1e18
+    // DAI  -  USDC - WETH - WBTC - RENBTC
+    function getLPTokenValue()
+    public
+    view
+    returns (uint256[] memory)
+    {
+        uint256[] memory values = new uint256[](5);
+        uint256 supply = lpTotalSupply();
+
+        values[0] = arrayBalancerPool.getBalance(address(dai)) * PRECISION / supply;
+        values[1] = arrayBalancerPool.getBalance(address(usdc)) * (10 ** (18 - 6)) * PRECISION / supply;
+        values[2] = arrayBalancerPool.getBalance(address(weth)) * PRECISION / supply;
+        values[3] = arrayBalancerPool.getBalance(address(wbtc)) * (10 ** (18 - 8)) * PRECISION / supply;
+        values[4] = arrayBalancerPool.getBalance(address(renbtc)) * (10 ** (18 - 8)) * PRECISION / supply;
+
+
+        return values;
+
     }
 }

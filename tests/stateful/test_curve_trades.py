@@ -1,7 +1,11 @@
+import random
 import pytest
 from dotmap import DotMap
+from rich.console import Console
 import pandas as pd
 import matplotlib.pyplot as plt
+
+console = Console()
 
 
 @pytest.fixture(scope='module')
@@ -42,8 +46,28 @@ def isolation(fn_isolation):
     pass
 
 
+def test_trades(af, spool, bpool, accounts, daomsig, developer, rich, tokens):
+    accounts.default = rich
+    for k, v in tokens.items():
+        v.contract.approve(af, 2 ** 256 - 1, {'from': rich})
+
+    for i in range(10):
+        r = random.randint(a=1, b=3)
+        for j in range(r):
+            for k, v in tokens.items():
+                console.rule()
+                dec = v.contract.decimals()
+                symbol = v.contract.symbol()
+                amount = bpool.getBalance(v.contract) / 10
+                af.buy(v.contract, amount, 5, {'from': rich})
+                console.print(f'Supply: {af.totalSupply() / 1e18:.4f}\n bought: {amount / 10 ** dec:.4f} {symbol}\n')
+        amount_arr = af.balanceOf(rich)
+        af.sell['bool'](True, {'from': rich})
+        console.print(f'Supply: {af.totalSupply() / 1e18:.4f}\n sold: {amount_arr / 1e18:.4f} ARRAY\n')
+
+
 @pytest.mark.skip()
-def test_stateful(af, spool, bpool, accounts, daomsig, developer, rich, tokens):
+def test_buys(af, spool, bpool, accounts, daomsig, developer, rich, tokens):
     accounts.default = rich
     for k, v in tokens.items():
         v.contract.approve(af, 2 ** 256 - 1, {'from': rich})

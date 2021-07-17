@@ -101,11 +101,14 @@ def test_calculate_array_price(af, tokens, spool, bpool, devmsig, daomsig, rich,
 
 def test_calculate_lp_price(af, tokens, spool, bpool, devmsig, daomsig, rich, user):
     af.transfer(user, 1e18, {'from': daomsig})
-    print(af.balanceOf(daomsig))
     expected_return = af.calculateLPtokensGivenArrayTokens(1e18)
-    print(expected_return)
     tx = af.sell['uint256'](1e18, {'from': user})
     actual_return = tx.return_value
     print(f'Expected: {expected_return / 1e18:.4f}')
     print(f'Actual: {actual_return / 1e18:.4f}')
     assert expected_return == actual_return
+
+
+def test_value_lp(af):
+    print(f'DAI, USDC, WETH, WBTC, RENBTC')
+    print(af.getLPTokenValue())
