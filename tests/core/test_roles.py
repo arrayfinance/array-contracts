@@ -26,24 +26,16 @@ def test_roles_on_chain(ArrayRoles, Contract, developer, daomsig, devmsig, user,
     assert roles.hasRole(devmsig_role, accounts[8])
 
 
-@pytest.mark.skip()
-def test_roles(roles, daomsig, devmsig, user, accounts):
-    dev_role = roles.DEVELOPER()
+def test_roles(roles, daomsig, devmsig, user, accounts, developer):
     daomsig_role = roles.DAO_MULTISIG()
     devmsig_role = roles.DEV_MULTISIG()
 
-
     # check if the roles are set up correctly
-    assert roles.hasRole(dev_role, developer)
     assert roles.hasRole(daomsig_role, daomsig)
     assert roles.hasRole(devmsig_role, devmsig)
 
     assert not roles.hasRole(daomsig_role, user)
 
-    # devmsig is admin of developer role and can revoke / grantt
-    roles.grantRole(dev_role, accounts[9], {'from': devmsig})
-    assert roles.hasRole(dev_role, developer)
-    assert roles.hasRole(dev_role, accounts[9])
     # daomsig is admin of all and can  revoke grant
     roles.grantRole(devmsig_role, accounts[8], {'from': daomsig})
     assert roles.hasRole(devmsig_role, devmsig)
