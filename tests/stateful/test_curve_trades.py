@@ -45,7 +45,7 @@ def tokens(bpool, spool, daomsig, developer, rich, dai, usdc, weth, wbtc, renbtc
 def isolation(fn_isolation):
     pass
 
-
+@pytest.mark.skip()
 def test_trades(af, spool, bpool, accounts, daomsig, developer, rich, tokens):
     accounts.default = rich
     for k, v in tokens.items():
