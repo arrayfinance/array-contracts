@@ -42,6 +42,7 @@ def isolation(fn_isolation):
     pass
 
 
+@pytest.mark.skip()
 def test_stateful(af, spool, bpool, accounts, daomsig, developer, rich, tokens):
     accounts.default = rich
     for k, v in tokens.items():
