@@ -19,15 +19,10 @@ def bpool(interface):
 
 
 @pytest.fixture(scope='module')
-def roles(ArrayRoles, developer, timelock, daomsig):
-    yield ArrayRoles.deploy(developer, timelock, {'from': daomsig})
-
-
-@pytest.fixture(scope='module')
-def af(ArrayFinance, spool, roles, daomsig):
-    af = ArrayFinance.deploy(roles, {'from': daomsig})
+def af(ArrayFinance, spool, roles, daomsig, developer):
+    af = ArrayFinance.deploy(roles, {'from': developer})
     spool.approve(af, 2 ** 256 - 1, {'from': daomsig})
-    af.sendInitLpToken({'from': daomsig})
+    af.initialize({'from': daomsig})
     yield af
 
 
@@ -47,7 +42,6 @@ def isolation(fn_isolation):
     pass
 
 
-@pytest.mark.skip()
 def test_stateful(af, spool, bpool, accounts, daomsig, developer, rich, tokens):
     accounts.default = rich
     for k, v in tokens.items():
@@ -64,7 +58,10 @@ def test_stateful(af, spool, bpool, accounts, daomsig, developer, rich, tokens):
                 amount = bpool.getBalance(v.contract) / 3
                 tx = af.buy(v.contract, amount, 5, {'from': rich})
                 price = amount / tx.return_value
-                l.append({'supply': af.totalSupply(), 'price': price})
+                l.append({'supply': af.totalSupply() / 1e18, 'price': price})
                 print(f'{af.totalSupply() / 1e18:.4f} -> {price:.4f} DAI')
         if af.totalSupply() > 90000e18:
             break
+
+    df = pd.DataFrame(l)
+    df.to_csv('data.csv')

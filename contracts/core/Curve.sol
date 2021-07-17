@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Unlicense
 
-pragma solidity ^0.8.2;
+pragma solidity ^0.8.0;
 
 // openzeppelin stuff
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 
@@ -16,7 +17,7 @@ import "../interfaces/ISmartPool.sol";
 import "../interfaces/IBPool.sol";
 import "../interfaces/IAccessControl.sol";
 
-contract ArrayFinance is ERC20, ReentrancyGuard, GasPrice {
+contract ArrayFinance is ERC20, ReentrancyGuard, Initializable, GasPrice {
 
     address private DAO_MULTISIG_ADDR = address(0xB60eF661cEdC835836896191EDB87CC025EFd0B7);
     address private DEV_MULTISIG_ADDR = address(0x3c25c256E609f524bf8b35De7a517d5e883Ff81C);
@@ -25,17 +26,17 @@ contract ArrayFinance is ERC20, ReentrancyGuard, GasPrice {
     // Starting supply of 10k ARRAY
     uint256 private STARTING_ARRAY_MINTED = 10000 * PRECISION;
 
-    uint32 public reserveRatio = 455555;
+    uint32 private reserveRatio = 435000;
 
     uint256 private devPctToken = 10 * 10 ** 16;
     uint256 private daoPctToken = 20 * 10 ** 16;
 
     uint256 public maxSupply = 100000 * PRECISION;
 
-    IAccessControl private roles;
+    IAccessControl public roles;
     IBancorFormula private bancorFormula = IBancorFormula(0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a);
-    ISmartPool private arraySmartPool = ISmartPool(0xA800cDa5f3416A6Fb64eF93D84D6298a685D190d);
-    IBPool private arrayBalancerPool = IBPool(0x02e1300A7E6c3211c65317176Cf1795f9bb1DaAb);
+    ISmartPool public arraySmartPool = ISmartPool(0xA800cDa5f3416A6Fb64eF93D84D6298a685D190d);
+    IBPool public arrayBalancerPool = IBPool(0x02e1300A7E6c3211c65317176Cf1795f9bb1DaAb);
 
 
     event Buy(
@@ -67,19 +68,15 @@ contract ArrayFinance is ERC20, ReentrancyGuard, GasPrice {
         _;
     }
 
-    modifier onlyTIMELOCK() {
-        require(roles.hasRole(keccak256('TIMELOCK'), msg.sender));
-        _;
-    }
-
     constructor(address _roles)
     ERC20("Array Finance", "ARRAY")
     {
         roles = IAccessControl(_roles);
     }
 
-    function sendInitLpToken()
-    external
+    function initialize()
+    public
+    initializer
     onlyDAOMSIG
     {
         uint256 amount = arraySmartPool.balanceOf(DAO_MULTISIG_ADDR);
@@ -100,7 +97,7 @@ contract ArrayFinance is ERC20, ReentrancyGuard, GasPrice {
     validGasPrice
     returns (uint256 returnAmount)
     {
-        require(slippage < 100, "slippage too high");
+        require(slippage < 50, "slippage too high");
         require(this.isTokenInLP(address(token)), 'token not in lp');
         require(amount > 0, 'amount is 0');
         require(token.allowance(msg.sender, address(this)) >= amount, 'user allowance < amount');

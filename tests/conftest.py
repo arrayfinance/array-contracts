@@ -47,6 +47,11 @@ def mock(Mock, developer):
 
 
 @pytest.fixture(scope='module')
+def roles(ArrayRoles):
+    yield ArrayRoles.at('0x1c613e4F8DC1653c734cFB0De6e8add303166e77')
+
+
+@pytest.fixture(scope='module')
 def timelock(governance, developer, user, ArrayTimelock):
     mindelay = 24 * 60 * 60  # one day
     yield ArrayTimelock.deploy(mindelay, [governance], [developer, user], {'from': developer})
@@ -125,6 +130,6 @@ def rich(guy, dai, usdc, weth, wbtc, renbtc, nance, poly, nance_two,
 
     cur = interface.curve('0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714')
     wbtc.approve(cur, 2 ** 256 - 1, {'from': guy})
-    cur.exchange(1, 0, wbtc.balanceOf(guy)/2, 0, {'from': guy})
+    cur.exchange(1, 0, 1000e8, 0, {'from': guy})
 
     yield guy

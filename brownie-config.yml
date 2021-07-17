@@ -1,6 +1,11 @@
 networks:
-  default: mainnet-fork
+  default: geth-node
+  name: Ganache-CLI (Geth Mainnet Fork)
+  id: geth-node
+  host: http://127.0.0.1
+  cmd: ganache-cli
   cmd_settings:
+    fork: http://192.168.1.191:9545
     gas_limit: 10000000
     port: 8545
     accounts: 10
@@ -18,6 +23,7 @@ networks:
       - 0x2FAF487A4414Fe77e2327F0bf4AE2a264a776AD2
       - 0x3f5CE5FBFe3E9af3971dD833D26bA9b5C936f0bE
       - 0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8
+      - 0x6d190a2e3eb0ebeea3ba663529a481212d2a4571
 
 
 autofetch_sources: True
@@ -28,12 +34,11 @@ dependencies:
 
 compiler:
   solc:
-    version: null
+    version: 0.8.0
     remappings:
       - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.1.0"
 
 hypothesis:
-  deadline: null
   max_examples: 25
   report_multiple_bugs: False
   stateful_step_count: 10
